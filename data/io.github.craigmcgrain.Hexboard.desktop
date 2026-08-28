@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Hexboard
+Comment=Arrange game pieces on an infinite hexagonal game board
+Exec=hexboard
+Icon=io.github.craigmcgrain.Hexboard
+Categories=Game;BoardGame;
+Keywords=hex;game;board;tabletop;
+StartupNotify=true
