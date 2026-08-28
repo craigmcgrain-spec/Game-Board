@@ -1,0 +1,546 @@
+#include "mainwindow.h"
+
+#include "boardwidget.h"
+#include "playerspanel.h"
+#include "tileassetpicker.h"
+
+#include <QAction>
+#include <QActionGroup>
+#include <QCloseEvent>
+#include <QColorDialog>
+#include <QComboBox>
+#include <QDir>
+#include <QDockWidget>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonParseError>
+#include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QSaveFile>
+#include <QSettings>
+#include <QStatusBar>
+#include <QSpinBox>
+#include <QStyle>
+#include <QToolBar>
+
+namespace {
+constexpr int SessionVersion = 6;
+constexpr qint64 MaxSessionBytes = 512LL * 1024 * 1024;
+constexpr int MaxRecentFiles = 8;
+
+QIcon colorIcon(const QColor &color)
+{
+    QPixmap pixmap(20, 20);
+    pixmap.fill(color);
+    return QIcon(pixmap);
+}
+
+QString sessionFilter()
+{
+    return MainWindow::tr("Hexboard sessions (*.hexboard);;All files (*)");
+}
+}
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , m_board(new BoardWidget(this))
+    , m_tileCountLabel(new QLabel(tr("0 pieces"), this))
+    , m_zoomLabel(new QLabel(tr("100%"), this))
+{
+    resize(1200, 800);
+    setCentralWidget(m_board);
+    auto *playersDock = new QDockWidget(tr("Players"), this);
+    playersDock->setObjectName(QStringLiteral("playersDock"));
+    playersDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    playersDock->setMinimumWidth(200);
+    m_playersPanel = new PlayersPanel(m_board, playersDock);
+    playersDock->setWidget(m_playersPanel);
+    addDockWidget(Qt::RightDockWidgetArea, playersDock);
+    resizeDocks({playersDock}, {320}, Qt::Horizontal);
+    m_recentFiles = QSettings().value(QStringLiteral("files/recent")).toStringList();
+    updateWindowTitle();
+
+    auto *interactionTools = new QActionGroup(this);
+    interactionTools->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+
+    auto *toolbar = addToolBar(tr("Board"));
+    toolbar->setMovable(false);
+    toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+    QAction *backgroundColor = toolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("color-picker")),
+        tr("Background color"));
+    QAction *backgroundImage = toolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("insert-image")),
+        tr("Background image"));
+    toolbar->addSeparator();
+    QAction *showHexGrid = toolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("view-grid")),
+        tr("Show hex grid"));
+    showHexGrid->setCheckable(true);
+    showHexGrid->setShortcut(QKeySequence(Qt::Key_G));
+    toolbar->addSeparator();
+    QAction *navigate = toolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("transform-move")),
+        tr("Navigate"));
+    navigate->setCheckable(true);
+    navigate->setShortcut(QKeySequence(Qt::Key_N));
+    interactionTools->addAction(navigate);
+    toolbar->addSeparator();
+    QAction *clearBoard = toolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("edit-clear-all")),
+        tr("Clear board"));
+
+    auto *tileToolbar = addToolBar(tr("Tile backgrounds"));
+    tileToolbar->setMovable(false);
+    tileToolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    QAction *paintTiles = tileToolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("draw-brush")),
+        tr("Paint tiles"));
+    paintTiles->setCheckable(true);
+    paintTiles->setShortcut(QKeySequence(Qt::Key_P));
+    interactionTools->addAction(paintTiles);
+    QAction *eraseTiles = tileToolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("draw-eraser")),
+        tr("Erase tiles"));
+    eraseTiles->setCheckable(true);
+    eraseTiles->setShortcut(QKeySequence(Qt::Key_E));
+    interactionTools->addAction(eraseTiles);
+
+    auto *tilePicker = new TileAssetPicker(tileToolbar);
+    tileToolbar->addWidget(tilePicker);
+    QAction *tileFolder = tileToolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("folder-pictures")),
+        tr("Tile folder"));
+
+    auto *linkToolbar = addToolBar(tr("Links"));
+    linkToolbar->setMovable(false);
+    linkToolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+    QAction *linkMode = linkToolbar->addAction(
+        QIcon::fromTheme(QStringLiteral("draw-line")),
+        tr("Link hexes"));
+    linkMode->setCheckable(true);
+    linkMode->setShortcut(QKeySequence(Qt::Key_L));
+    interactionTools->addAction(linkMode);
+
+    linkToolbar->addSeparator();
+    linkToolbar->addWidget(new QLabel(tr("Thickness:"), linkToolbar));
+    auto *lineWidth = new QSpinBox(linkToolbar);
+    lineWidth->setRange(1, 12);
+    lineWidth->setValue(6);
+    lineWidth->setSuffix(tr(" px"));
+    linkToolbar->addWidget(lineWidth);
+
+    QColor linkColor(Qt::black);
+    QAction *lineColor = linkToolbar->addAction(colorIcon(linkColor), tr("Line color"));
+
+    linkToolbar->addWidget(new QLabel(tr("Arrows:"), linkToolbar));
+    auto *arrowStyle = new QComboBox(linkToolbar);
+    arrowStyle->addItem(tr("None"), static_cast<int>(ArrowStyle::None));
+    arrowStyle->addItem(tr("End"), static_cast<int>(ArrowStyle::End));
+    arrowStyle->addItem(tr("Both ends"), static_cast<int>(ArrowStyle::Both));
+    arrowStyle->setCurrentIndex(1);
+    linkToolbar->addWidget(arrowStyle);
+
+    QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
+    QAction *newAction = fileMenu->addAction(tr("&New"));
+    newAction->setShortcut(QKeySequence::New);
+    QAction *openAction = fileMenu->addAction(tr("&Open..."));
+    openAction->setShortcut(QKeySequence::Open);
+    m_recentMenu = fileMenu->addMenu(tr("Open &Recent"));
+    fileMenu->addSeparator();
+    QAction *saveAction = fileMenu->addAction(tr("&Save"));
+    saveAction->setShortcut(QKeySequence::Save);
+    QAction *saveAsAction = fileMenu->addAction(tr("Save &As..."));
+    saveAsAction->setShortcut(QKeySequence::SaveAs);
+    fileMenu->addSeparator();
+    QAction *quitAction = fileMenu->addAction(tr("Quit"));
+    quitAction->setShortcut(QKeySequence::Quit);
+    updateRecentMenu();
+
+    QMenu *boardMenu = menuBar()->addMenu(tr("&Board"));
+    boardMenu->addAction(backgroundColor);
+    boardMenu->addAction(backgroundImage);
+    QAction *removeBackgroundImage = boardMenu->addAction(tr("Use solid color"));
+    boardMenu->addSeparator();
+    boardMenu->addAction(clearBoard);
+
+    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(playersDock->toggleViewAction());
+
+    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
+    QAction *instructions = helpMenu->addAction(tr("How to use Hexboard"));
+    QAction *about = helpMenu->addAction(tr("About Hexboard"));
+
+    statusBar()->showMessage(
+        tr("Drop game-piece images onto hexes. Drag empty space to pan and scroll to zoom."));
+    statusBar()->addPermanentWidget(m_tileCountLabel);
+    statusBar()->addPermanentWidget(m_zoomLabel);
+
+    connect(backgroundColor, &QAction::triggered, m_board, &BoardWidget::chooseBackgroundColor);
+    connect(backgroundImage, &QAction::triggered, m_board, &BoardWidget::chooseBackgroundImage);
+    connect(removeBackgroundImage, &QAction::triggered, m_board, &BoardWidget::clearBackgroundImage);
+    connect(navigate, &QAction::toggled, m_board, &BoardWidget::setNavigationMode);
+    connect(showHexGrid, &QAction::toggled, this, [this](bool visible) {
+        m_board->setHexGridVisible(visible);
+        QSettings().setValue(QStringLiteral("view/hexGridVisible"), visible);
+    });
+    connect(clearBoard, &QAction::triggered, this, [this] {
+        if (QMessageBox::question(
+                this,
+                tr("Clear board"),
+                tr("Remove every tile background, game piece, and link from the board?"))
+                == QMessageBox::Yes) {
+            m_board->clearBoard();
+        }
+    });
+    connect(paintTiles, &QAction::toggled, m_board, &BoardWidget::setTilePaintMode);
+    connect(eraseTiles, &QAction::toggled, m_board, &BoardWidget::setTileEraseMode);
+    connect(
+        tilePicker,
+        &TileAssetPicker::assetSelected,
+        this,
+        [this, paintTiles](const QImage &image, bool activatePaintTool) {
+        m_board->setTileBrushImage(image);
+        if (activatePaintTool) {
+            paintTiles->setChecked(true);
+        }
+        });
+    connect(tilePicker, &TileAssetPicker::collectionLoaded, this, [this, paintTiles](int count) {
+        paintTiles->setEnabled(count > 0);
+        if (count == 0) {
+            paintTiles->setChecked(false);
+            m_board->setTileBrushImage({});
+        }
+        statusBar()->showMessage(tr("Loaded %n individual tile(s).", nullptr, count), 5000);
+    });
+    connect(tileFolder, &QAction::triggered, this, [this, tilePicker] {
+        const QString current = QSettings().value(
+            QStringLiteral("tiles/collectionDirectory"),
+            QStringLiteral("/home/lyco/Documents/Hexboard Tiles")).toString();
+        const QString directory = QFileDialog::getExistingDirectory(
+            this,
+            tr("Choose tile image collection"),
+            current);
+        if (directory.isEmpty()) {
+            return;
+        }
+        QSettings().setValue(QStringLiteral("tiles/collectionDirectory"), directory);
+        tilePicker->loadDirectory(directory);
+    });
+    connect(newAction, &QAction::triggered, this, &MainWindow::newSession);
+    connect(openAction, &QAction::triggered, this, &MainWindow::openSession);
+    connect(saveAction, &QAction::triggered, this, [this] {
+        saveSession();
+    });
+    connect(saveAsAction, &QAction::triggered, this, [this] {
+        saveSessionAs();
+    });
+    connect(linkMode, &QAction::toggled, m_board, &BoardWidget::setLinkMode);
+    connect(lineWidth, &QSpinBox::valueChanged, m_board, &BoardWidget::setLinkWidth);
+    connect(lineColor, &QAction::triggered, this, [this, lineColor, linkColor]() mutable {
+        const QColor selected = QColorDialog::getColor(linkColor, this, tr("Choose line color"));
+        if (!selected.isValid()) {
+            return;
+        }
+        linkColor = selected;
+        lineColor->setIcon(colorIcon(selected));
+        m_board->setLinkColor(selected);
+    });
+    connect(arrowStyle, &QComboBox::currentIndexChanged, this, [this, arrowStyle] {
+        m_board->setArrowStyle(static_cast<ArrowStyle>(arrowStyle->currentData().toInt()));
+    });
+    connect(quitAction, &QAction::triggered, this, &QWidget::close);
+    connect(instructions, &QAction::triggered, this, [this] {
+        QMessageBox::information(
+            this,
+            tr("How to use Hexboard"),
+            tr("<b>Add:</b> Drag game-piece images from Dolphin onto the board.<br>"
+               "<b>Move:</b> Drag an individual piece from one hex to another.<br>"
+               "<b>Resize:</b> Right-click a piece and use the Game piece size menu.<br>"
+               "<b>Name:</b> Right-click a piece and choose Rename game piece.<br>"
+               "<b>Player:</b> Right-click a piece and enable Player to add it to the Players panel.<br>"
+               "<b>Equipment:</b> Mark a piece as Equipment, choose Link to game piece, "
+               "then click its owner.<br>"
+               "<b>Players:</b> Add a player in the right panel, assign a game piece, "
+               "track hearts, equipment, and free-text notes.<br>"
+               "<b>Tiles:</b> Choose a tile image, enable Paint tiles, then click or drag.<br>"
+               "<b>Link:</b> Enable Link hexes, then click the start and end hex.<br>"
+               "<b>Navigate:</b> Enable Navigate to drag from anywhere without moving pieces.<br>"
+               "<b>Sessions:</b> Use the File menu to save or open a complete board.<br>"
+               "<b>Navigate:</b> Drag empty space to pan and use the wheel to zoom.<br>"
+               "<b>Remove:</b> Right-click a piece or hex to remove content."));
+    });
+    connect(about, &QAction::triggered, this, [this] {
+        QMessageBox::about(
+            this,
+            tr("About Hexboard"),
+            tr("<b>Hexboard 1.0</b><br>An infinite hexagonal canvas for tabletop games."));
+    });
+    connect(m_board, &BoardWidget::pieceCountChanged, this, [this](int count) {
+        m_tileCountLabel->setText(tr("%n piece(s)", nullptr, count));
+    });
+    connect(m_board, &BoardWidget::zoomChanged, this, [this](int percent) {
+        m_zoomLabel->setText(tr("%1%").arg(percent));
+    });
+    connect(m_board, &BoardWidget::interactionHintChanged, this, [this](const QString &message) {
+        statusBar()->showMessage(message, 5000);
+    });
+    connect(m_board, &BoardWidget::boardChanged, this, [this] {
+        setModified(true);
+    });
+    showHexGrid->setChecked(
+        QSettings().value(QStringLiteral("view/hexGridVisible"), false).toBool());
+    tilePicker->loadDirectory(QSettings().value(
+        QStringLiteral("tiles/collectionDirectory"),
+        QStringLiteral("/home/lyco/Documents/Hexboard Tiles")).toString());
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (maybeSave()) {
+        event->accept();
+    } else {
+        event->ignore();
+    }
+}
+
+bool MainWindow::maybeSave()
+{
+    if (!m_modified) {
+        return true;
+    }
+
+    const QMessageBox::StandardButton choice = QMessageBox::warning(
+        this,
+        tr("Unsaved session"),
+        tr("The current gameboard has unsaved changes."),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+        QMessageBox::Save);
+    if (choice == QMessageBox::Save) {
+        return saveSession();
+    }
+    return choice == QMessageBox::Discard;
+}
+
+bool MainWindow::saveSession()
+{
+    return m_currentFile.isEmpty() ? saveSessionAs() : saveSessionTo(m_currentFile);
+}
+
+bool MainWindow::saveSessionAs()
+{
+    const QString suggestion = m_currentFile.isEmpty()
+        ? QDir::home().filePath(tr("Untitled.hexboard"))
+        : m_currentFile;
+    QString path = QFileDialog::getSaveFileName(
+        this,
+        tr("Save Hexboard session"),
+        suggestion,
+        sessionFilter());
+    if (path.isEmpty()) {
+        return false;
+    }
+    if (!path.endsWith(QStringLiteral(".hexboard"), Qt::CaseInsensitive)) {
+        path += QStringLiteral(".hexboard");
+    }
+    return saveSessionTo(path);
+}
+
+bool MainWindow::saveSessionTo(const QString &path)
+{
+    QJsonObject boardData;
+    QString boardError;
+    if (!m_board->saveSessionData(&boardData, &boardError)) {
+        QMessageBox::critical(this, tr("Could not save session"), boardError);
+        return false;
+    }
+
+    const QJsonObject root{
+        {QStringLiteral("format"), QStringLiteral("hexboard-session")},
+        {QStringLiteral("version"), SessionVersion},
+        {QStringLiteral("board"), boardData}
+    };
+    const QByteArray contents = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    if (contents.size() > MaxSessionBytes) {
+        QMessageBox::critical(
+            this,
+            tr("Could not save session"),
+            tr("The session exceeds the supported 512 MB file limit."));
+        return false;
+    }
+
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::critical(
+            this,
+            tr("Could not save session"),
+            tr("Could not open %1 for writing:\n%2").arg(path, file.errorString()));
+        return false;
+    }
+    if (file.write(contents) != contents.size()) {
+        const QString error = file.errorString();
+        file.cancelWriting();
+        QMessageBox::critical(
+            this,
+            tr("Could not save session"),
+            tr("Could not write %1:\n%2").arg(path, error));
+        return false;
+    }
+    if (!file.commit()) {
+        QMessageBox::critical(
+            this,
+            tr("Could not save session"),
+            tr("Could not finish writing %1:\n%2").arg(path, file.errorString()));
+        return false;
+    }
+
+    m_currentFile = QFileInfo(path).absoluteFilePath();
+    addRecentFile(m_currentFile);
+    setModified(false);
+    statusBar()->showMessage(tr("Session saved to %1").arg(m_currentFile), 5000);
+    return true;
+}
+
+bool MainWindow::loadSessionFrom(const QString &path)
+{
+    QFile file(path);
+    const QFileInfo info(file);
+    if (!info.exists() || !file.open(QIODevice::ReadOnly)) {
+        QMessageBox::critical(
+            this,
+            tr("Could not open session"),
+            tr("Could not open %1:\n%2").arg(path, file.errorString()));
+        return false;
+    }
+    if (file.size() > MaxSessionBytes) {
+        QMessageBox::critical(
+            this,
+            tr("Could not open session"),
+            tr("%1 is larger than the supported 512 MB session limit.").arg(path));
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        QMessageBox::critical(
+            this,
+            tr("Could not open session"),
+            tr("%1 is not a valid Hexboard session:\n%2").arg(path, parseError.errorString()));
+        return false;
+    }
+
+    const QJsonObject root = document.object();
+    const int version = root.value(QStringLiteral("version")).toInt(-1);
+    if (root.value(QStringLiteral("format")).toString() != QStringLiteral("hexboard-session")
+        || version < 1
+        || version > SessionVersion
+        || !root.value(QStringLiteral("board")).isObject()) {
+        QMessageBox::critical(
+            this,
+            tr("Could not open session"),
+            tr("%1 uses an unsupported or invalid Hexboard session format.").arg(path));
+        return false;
+    }
+
+    QString boardError;
+    if (!m_board->loadSession(root.value(QStringLiteral("board")).toObject(), &boardError)) {
+        QMessageBox::critical(
+            this,
+            tr("Could not open session"),
+            tr("Could not load %1:\n%2").arg(path, boardError));
+        return false;
+    }
+
+    m_currentFile = info.absoluteFilePath();
+    addRecentFile(m_currentFile);
+    setModified(false);
+    statusBar()->showMessage(tr("Session opened from %1").arg(m_currentFile), 5000);
+    return true;
+}
+
+void MainWindow::newSession()
+{
+    if (!maybeSave()) {
+        return;
+    }
+    m_board->resetSession();
+    m_currentFile.clear();
+    setModified(false);
+}
+
+void MainWindow::openSession()
+{
+    if (!maybeSave()) {
+        return;
+    }
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Open Hexboard session"),
+        m_currentFile.isEmpty() ? QDir::homePath() : m_currentFile,
+        sessionFilter());
+    if (!path.isEmpty()) {
+        loadSessionFrom(path);
+    }
+}
+
+void MainWindow::addRecentFile(const QString &path)
+{
+    const QString absolutePath = QFileInfo(path).absoluteFilePath();
+    m_recentFiles.removeAll(absolutePath);
+    m_recentFiles.prepend(absolutePath);
+    while (m_recentFiles.size() > MaxRecentFiles) {
+        m_recentFiles.removeLast();
+    }
+    QSettings().setValue(QStringLiteral("files/recent"), m_recentFiles);
+    updateRecentMenu();
+}
+
+void MainWindow::updateRecentMenu()
+{
+    m_recentMenu->clear();
+    m_recentFiles.removeIf([](const QString &path) {
+        return !QFileInfo::exists(path);
+    });
+
+    if (m_recentFiles.isEmpty()) {
+        QAction *emptyAction = m_recentMenu->addAction(tr("No recent sessions"));
+        emptyAction->setEnabled(false);
+        return;
+    }
+
+    for (int index = 0; index < m_recentFiles.size(); ++index) {
+        const QString path = m_recentFiles.at(index);
+        QString fileName = QFileInfo(path).fileName();
+        fileName.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QAction *action = m_recentMenu->addAction(
+            tr("&%1 %2").arg(index + 1).arg(fileName));
+        action->setToolTip(path);
+        connect(action, &QAction::triggered, this, [this, path] {
+            if (maybeSave()) {
+                loadSessionFrom(path);
+            }
+        });
+    }
+}
+
+void MainWindow::updateWindowTitle()
+{
+    const QString name = m_currentFile.isEmpty()
+        ? tr("Untitled")
+        : QFileInfo(m_currentFile).fileName();
+    setWindowTitle(tr("%1[*] — Hexboard").arg(name));
+    setWindowModified(m_modified);
+}
+
+void MainWindow::setModified(bool modified)
+{
+    m_modified = modified;
+    updateWindowTitle();
+}
