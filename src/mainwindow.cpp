@@ -18,12 +18,14 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QSaveFile>
 #include <QSettings>
 #include <QStatusBar>
@@ -31,12 +33,74 @@
 #include <QStyle>
 #include <QTabWidget>
 #include <QToolBar>
+#include <QToolButton>
 #include <QVBoxLayout>
+#include <QWindow>
 
 namespace {
 constexpr int SessionVersion = 6;
 constexpr qint64 MaxSessionBytes = 512LL * 1024 * 1024;
 constexpr int MaxRecentFiles = 8;
+
+class FloatingDockTitleBar final : public QWidget
+{
+public:
+    explicit FloatingDockTitleBar(QDockWidget *dock)
+        : QWidget(dock)
+        , m_dock(dock)
+    {
+        setObjectName(QStringLiteral("toolsFloatingTitleBar"));
+        auto *layout = new QHBoxLayout(this);
+        layout->setContentsMargins(8, 3, 3, 3);
+        layout->setSpacing(4);
+        auto *title = new QLabel(dock->windowTitle(), this);
+        title->setAttribute(Qt::WA_TransparentForMouseEvents);
+        layout->addWidget(title, 1);
+
+        auto *dockButton = new QToolButton(this);
+        dockButton->setObjectName(QStringLiteral("dockToolsPanelButton"));
+        dockButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarNormalButton));
+        dockButton->setToolTip(tr("Dock Tabletop Tools"));
+        layout->addWidget(dockButton);
+
+        auto *closeButton = new QToolButton(this);
+        closeButton->setObjectName(QStringLiteral("closeToolsPanelButton"));
+        closeButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+        closeButton->setToolTip(tr("Hide Tabletop Tools"));
+        layout->addWidget(closeButton);
+
+        connect(dockButton, &QToolButton::clicked, dock, [dock] {
+            dock->setFloating(false);
+        });
+        connect(closeButton, &QToolButton::clicked, dock, &QWidget::hide);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton && m_dock->isFloating()) {
+            if (QWindow *window = m_dock->windowHandle()) {
+                window->startSystemMove();
+            }
+            event->accept();
+            return;
+        }
+        QWidget::mousePressEvent(event);
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton && m_dock->isFloating()) {
+            m_dock->setFloating(false);
+            event->accept();
+            return;
+        }
+        QWidget::mouseDoubleClickEvent(event);
+    }
+
+private:
+    QDockWidget *m_dock = nullptr;
+};
 
 QIcon colorIcon(const QColor &color)
 {
@@ -86,6 +150,10 @@ MainWindow::MainWindow(QWidget *parent)
     toolsPanelLayout->addWidget(m_toolTabs, 1);
     m_toolsDock->setWidget(toolsPanel);
     addDockWidget(Qt::LeftDockWidgetArea, m_toolsDock);
+    auto *floatingToolsTitle = new FloatingDockTitleBar(m_toolsDock);
+    connect(m_toolsDock, &QDockWidget::topLevelChanged, this, [this, floatingToolsTitle](bool floating) {
+        m_toolsDock->setTitleBarWidget(floating ? floatingToolsTitle : nullptr);
+    });
 
     auto *playersDock = new QDockWidget(tr("Players"), this);
     playersDock->setObjectName(QStringLiteral("playersDock"));
