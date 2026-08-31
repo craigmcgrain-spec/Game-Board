@@ -5,6 +5,7 @@
 #include <QDockWidget>
 #include <QSettings>
 #include <QTabWidget>
+#include <QToolButton>
 #include <QtTest>
 
 class MainWindowTest final : public QObject
@@ -34,17 +35,23 @@ private slots:
         QVERIFY(toolsDock->features().testFlag(QDockWidget::DockWidgetClosable));
         window.show();
         QTRY_VERIFY_WITH_TIMEOUT(toolsDock->isVisible(), 500);
-        QVERIFY(toolsDock->isFloating());
-        QCOMPARE(toolsDock->allowedAreas(), Qt::NoDockWidgetArea);
+        QCOMPARE(window.dockWidgetArea(toolsDock), Qt::LeftDockWidgetArea);
         QCOMPARE(tabs->count(), 0);
         QVERIFY(window.centralWidget());
         QCOMPARE(window.centralWidget()->metaObject()->className(), "BoardWidget");
 
+        toolsDock->setFloating(true);
+        QTRY_VERIFY_WITH_TIMEOUT(toolsDock->isFloating(), 500);
         QVERIFY(toolsDock->titleBarWidget());
         QCOMPARE(
             toolsDock->titleBarWidget()->objectName(),
             QStringLiteral("toolsFloatingTitleBar"));
-        const QRect boardGeometry = window.centralWidget()->geometry();
+        auto *dockButton = toolsDock->findChild<QToolButton *>(
+            QStringLiteral("dockToolsPanelButton"));
+        QVERIFY(dockButton);
+        dockButton->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!toolsDock->isFloating(), 500);
+        QVERIFY(!toolsDock->titleBarWidget());
 
         openDice->trigger();
         QCOMPARE(tabs->count(), 1);
@@ -63,10 +70,8 @@ private slots:
 
         toggleTools->trigger();
         QVERIFY(toolsDock->isHidden());
-        QCOMPARE(window.centralWidget()->geometry(), boardGeometry);
         toggleTools->trigger();
         QVERIFY(!toolsDock->isHidden());
-        QCOMPARE(window.centralWidget()->geometry(), boardGeometry);
         toggleTools->trigger();
         QVERIFY(toolsDock->isHidden());
         openDice->trigger();
