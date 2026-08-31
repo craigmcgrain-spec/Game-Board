@@ -32,6 +32,7 @@
 #include <QSpinBox>
 #include <QStyle>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -57,21 +58,12 @@ public:
         title->setAttribute(Qt::WA_TransparentForMouseEvents);
         layout->addWidget(title, 1);
 
-        auto *dockButton = new QToolButton(this);
-        dockButton->setObjectName(QStringLiteral("dockToolsPanelButton"));
-        dockButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarNormalButton));
-        dockButton->setToolTip(tr("Dock Tabletop Tools"));
-        layout->addWidget(dockButton);
-
         auto *closeButton = new QToolButton(this);
         closeButton->setObjectName(QStringLiteral("closeToolsPanelButton"));
         closeButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
         closeButton->setToolTip(tr("Hide Tabletop Tools"));
         layout->addWidget(closeButton);
 
-        connect(dockButton, &QToolButton::clicked, dock, [dock] {
-            dock->setFloating(false);
-        });
         connect(closeButton, &QToolButton::clicked, dock, &QWidget::hide);
     }
 
@@ -86,16 +78,6 @@ protected:
             return;
         }
         QWidget::mousePressEvent(event);
-    }
-
-    void mouseDoubleClickEvent(QMouseEvent *event) override
-    {
-        if (event->button() == Qt::LeftButton && m_dock->isFloating()) {
-            m_dock->setFloating(false);
-            event->accept();
-            return;
-        }
-        QWidget::mouseDoubleClickEvent(event);
     }
 
 private:
@@ -130,8 +112,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_toolsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     m_toolsDock->setFeatures(
         QDockWidget::DockWidgetClosable
-        | QDockWidget::DockWidgetMovable
-        | QDockWidget::DockWidgetFloatable);
+        | QDockWidget::DockWidgetMovable);
     m_toolsDock->setMinimumWidth(300);
     auto *toolsPanel = new QWidget(m_toolsDock);
     toolsPanel->setObjectName(QStringLiteral("toolsPanel"));
@@ -153,6 +134,13 @@ MainWindow::MainWindow(QWidget *parent)
     auto *floatingToolsTitle = new FloatingDockTitleBar(m_toolsDock);
     connect(m_toolsDock, &QDockWidget::topLevelChanged, this, [this, floatingToolsTitle](bool floating) {
         m_toolsDock->setTitleBarWidget(floating ? floatingToolsTitle : nullptr);
+    });
+    m_toolsDock->setFloating(true);
+    m_toolsDock->setAllowedAreas(Qt::NoDockWidgetArea);
+    QTimer::singleShot(0, this, [this] {
+        const QPoint panelPosition = m_board->mapToGlobal(QPoint(12, 12));
+        m_toolsDock->resize(360, qBound(420, m_board->height() - 24, 760));
+        m_toolsDock->move(panelPosition);
     });
 
     auto *playersDock = new QDockWidget(tr("Players"), this);

@@ -93,7 +93,8 @@ The Dice Roller, Chance Wheel, Gear Generator, and Name Generator open in
 closable tabs in the **Tabletop Tools** panel on the left side of the board.
 Use its launcher buttons or the **Tools** menu; the panel can also be hidden
 with its close button, from **View > Tabletop Tools Panel**, or with
-`Ctrl+Shift+T`. Tool preferences are stored separately from `.hexboard`
+`Ctrl+Shift+T`. The movable panel floats over the board so showing it never
+resizes or shifts the gameboard. Tool preferences are stored separately from `.hexboard`
 sessions; closing a tool tab discards its in-memory results and reopening it
 starts a clean instance.
 
