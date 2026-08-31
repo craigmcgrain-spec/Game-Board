@@ -4,7 +4,6 @@
 #include "namegeneratorwidget.h"
 
 #include <QCheckBox>
-#include <QComboBox>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
@@ -34,13 +33,13 @@ private slots:
         widget.setRandomIndexGenerator([](int upperBound) {
             return upperBound - 1;
         });
-        auto *die = widget.findChild<QComboBox *>(QStringLiteral("diceTypeSelector"));
+        auto *d6 = widget.findChild<QPushButton *>(QStringLiteral("diceTypeD6Button"));
         auto *count = widget.findChild<QSpinBox *>(QStringLiteral("diceCountSelector"));
         auto *total = widget.findChild<QLabel *>(QStringLiteral("diceTotalLabel"));
         auto *notation = widget.findChild<QLabel *>(QStringLiteral("diceNotationLabel"));
         auto *feedback = widget.findChild<QLabel *>(QStringLiteral("diceCriticalFeedbackLabel"));
         auto *history = widget.findChild<QListWidget *>(QStringLiteral("diceHistoryList"));
-        QVERIFY(die);
+        QVERIFY(d6);
         QVERIFY(count);
         QVERIFY(total);
         QVERIFY(notation);
@@ -48,19 +47,23 @@ private slots:
         QVERIFY(history);
 
         widget.roll();
-        QCOMPARE(total->text(), QStringLiteral("20"));
+        QCOMPARE(total->text(), QStringLiteral("Total: 20"));
         QCOMPARE(notation->text(), QStringLiteral("1d20"));
         QCOMPARE(feedback->text(), QStringLiteral("Natural 20!"));
         QCOMPARE(history->count(), 1);
 
         count->setValue(4);
-        die->setCurrentIndex(die->findData(6));
+        d6->click();
         QCOMPARE(count->value(), 1);
 
         for (int index = 0; index < 25; ++index) {
             widget.roll();
         }
         QCOMPARE(history->count(), 20);
+        QVERIFY(history->item(0)->text().startsWith(QStringLiteral("1d6: 6")));
+        for (int index = 0; index < history->count(); ++index) {
+            QVERIFY(!history->item(index)->text().startsWith(QStringLiteral("1d20:")));
+        }
     }
 
     void diceShowsAndLocksDuringRollAnimation()
@@ -71,7 +74,7 @@ private slots:
             return nextValue++ % upperBound;
         });
         widget.setRollAnimationDurationForTesting(120);
-        auto *die = widget.findChild<QComboBox *>(QStringLiteral("diceTypeSelector"));
+        auto *die = widget.findChild<QPushButton *>(QStringLiteral("diceTypeD20Button"));
         auto *count = widget.findChild<QSpinBox *>(QStringLiteral("diceCountSelector"));
         auto *roll = widget.findChild<QPushButton *>(QStringLiteral("diceRollButton"));
         auto *history = widget.findChild<QListWidget *>(QStringLiteral("diceHistoryList"));
@@ -92,7 +95,7 @@ private slots:
         QVERIFY(die->isEnabled());
         QVERIFY(count->isEnabled());
         QVERIFY(roll->isEnabled());
-        QCOMPARE(roll->text(), QStringLiteral("Roll"));
+        QCOMPARE(roll->text(), QStringLiteral("Roll Dice"));
         QCOMPARE(history->count(), 1);
     }
 

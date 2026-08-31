@@ -1,12 +1,14 @@
 #include "dicerollerwidget.h"
 
-#include <QComboBox>
+#include <QButtonGroup>
 #include <QFont>
-#include <QFormLayout>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QListWidget>
+#include <QPainter>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QSpinBox>
@@ -14,8 +16,69 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <utility>
+
+class DiceFaceWidget final : public QWidget
+{
+public:
+    explicit DiceFaceWidget(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("diceAnimatedFace"));
+        setFixedSize(92, 92);
+    }
+
+    void setRoll(int sides, int value, double phase, bool rolling)
+    {
+        m_sides = sides;
+        m_value = value;
+        m_phase = phase;
+        m_rolling = rolling;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.translate(rect().center());
+        if (m_rolling) {
+            painter.rotate(m_phase);
+            const double pulse = 0.9 + 0.1 * std::sin(qDegreesToRadians(m_phase * 2.0));
+            painter.scale(pulse, pulse);
+        }
+
+        const QRectF dieRect(-36.0, -36.0, 72.0, 72.0);
+        QColor faceColor = palette().color(QPalette::Highlight);
+        if (!isEnabled()) {
+            faceColor = palette().color(QPalette::Mid);
+        }
+        painter.setPen(QPen(faceColor.darker(135), 3.0));
+        painter.setBrush(faceColor);
+        painter.drawRoundedRect(dieRect, 13.0, 13.0);
+
+        painter.setPen(palette().color(QPalette::HighlightedText));
+        QFont valueFont = painter.font();
+        valueFont.setBold(true);
+        valueFont.setPointSize(valueFont.pointSize() + 11);
+        painter.setFont(valueFont);
+        painter.drawText(dieRect.adjusted(0, 2, 0, -9), Qt::AlignCenter, QString::number(m_value));
+
+        QFont typeFont = painter.font();
+        typeFont.setPointSize(std::max(7, typeFont.pointSize() - 12));
+        painter.setFont(typeFont);
+        painter.drawText(dieRect.adjusted(0, 48, 0, 0), Qt::AlignHCenter, QStringLiteral("d%1").arg(m_sides));
+    }
+
+private:
+    int m_sides = 20;
+    int m_value = 20;
+    double m_phase = 0.0;
+    bool m_rolling = false;
+};
 
 DiceRollerWidget::DiceRollerWidget(QWidget *parent)
     : QWidget(parent)
@@ -28,94 +91,130 @@ DiceRollerWidget::DiceRollerWidget(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(12);
 
     auto *title = new QLabel(tr("Dice Roller"), this);
+    title->setObjectName(QStringLiteral("diceRollerTitle"));
+    title->setAlignment(Qt::AlignCenter);
     QFont titleFont = title->font();
     titleFont.setBold(true);
-    titleFont.setPointSize(titleFont.pointSize() + 3);
+    titleFont.setPointSize(titleFont.pointSize() + 5);
     title->setFont(titleFont);
     layout->addWidget(title);
 
-    auto *controls = new QHBoxLayout;
-    auto *form = new QFormLayout;
-    m_dieSelector = new QComboBox(this);
-    m_dieSelector->setObjectName(QStringLiteral("diceTypeSelector"));
+    m_dieButtons = new QButtonGroup(this);
+    m_dieButtons->setExclusive(true);
+    auto *diceGrid = new QGridLayout;
+    diceGrid->setSpacing(6);
+    int buttonIndex = 0;
     for (const int sides : {4, 6, 8, 10, 12, 20, 100}) {
-        m_dieSelector->addItem(tr("d%1").arg(sides), sides);
+        auto *button = new QPushButton(tr("d%1").arg(sides), this);
+        button->setObjectName(QStringLiteral("diceTypeD%1Button").arg(sides));
+        button->setCheckable(true);
+        button->setMinimumHeight(40);
+        button->setFlat(sides != 20);
+        button->setChecked(sides == 20);
+        m_dieButtons->addButton(button, sides);
+        m_dieButtonList.append(button);
+        diceGrid->addWidget(button, buttonIndex / 4, buttonIndex % 4);
+        connect(button, &QPushButton::toggled, this, [button](bool checked) {
+            button->setFlat(!checked);
+        });
+        ++buttonIndex;
     }
-    m_dieSelector->setCurrentIndex(m_dieSelector->findData(20));
-    form->addRow(tr("Die:"), m_dieSelector);
+    layout->addLayout(diceGrid);
 
+    auto *countLayout = new QHBoxLayout;
+    countLayout->addWidget(new QLabel(tr("Count:"), this));
     m_countSelector = new QSpinBox(this);
     m_countSelector->setObjectName(QStringLiteral("diceCountSelector"));
     m_countSelector->setRange(1, 10);
     m_countSelector->setValue(1);
-    form->addRow(tr("Count:"), m_countSelector);
-    controls->addLayout(form);
+    m_countSelector->setMinimumHeight(36);
+    countLayout->addWidget(m_countSelector, 1);
+    layout->addLayout(countLayout);
 
-    m_rollButton = new QPushButton(tr("Roll"), this);
+    auto *separator = new QFrame(this);
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    layout->addWidget(separator);
+
+    m_rollButton = new QPushButton(QIcon::fromTheme(QStringLiteral("games-dice")), tr("Roll Dice"), this);
     m_rollButton->setObjectName(QStringLiteral("diceRollButton"));
     m_rollButton->setDefault(true);
-    controls->addWidget(m_rollButton);
-    controls->addStretch();
-    layout->addLayout(controls);
+    m_rollButton->setMinimumHeight(52);
+    QFont rollFont = m_rollButton->font();
+    rollFont.setBold(true);
+    rollFont.setPointSize(rollFont.pointSize() + 2);
+    m_rollButton->setFont(rollFont);
+    layout->addWidget(m_rollButton);
 
-    auto *resultFrame = new QFrame(this);
-    resultFrame->setFrameShape(QFrame::StyledPanel);
-    auto *resultLayout = new QVBoxLayout(resultFrame);
-    m_totalLabel = new QLabel(QStringLiteral("-"), resultFrame);
+    m_resultFrame = new QFrame(this);
+    m_resultFrame->setObjectName(QStringLiteral("diceResultCard"));
+    m_resultFrame->setMinimumHeight(178);
+    auto *resultLayout = new QVBoxLayout(m_resultFrame);
+    resultLayout->setContentsMargins(14, 12, 14, 12);
+    m_diceFace = new DiceFaceWidget(m_resultFrame);
+    m_diceFace->setRoll(20, 20, 0.0, false);
+    resultLayout->addWidget(m_diceFace, 0, Qt::AlignHCenter);
+
+    m_totalLabel = new QLabel(tr("Roll to see results"), m_resultFrame);
     m_totalLabel->setObjectName(QStringLiteral("diceTotalLabel"));
     m_totalLabel->setAlignment(Qt::AlignCenter);
     QFont totalFont = m_totalLabel->font();
     totalFont.setBold(true);
-    totalFont.setPointSize(totalFont.pointSize() + 10);
+    totalFont.setPointSize(totalFont.pointSize() + 8);
     m_totalLabel->setFont(totalFont);
     resultLayout->addWidget(m_totalLabel);
 
-    m_notationLabel = new QLabel(resultFrame);
+    m_notationLabel = new QLabel(m_resultFrame);
     m_notationLabel->setObjectName(QStringLiteral("diceNotationLabel"));
     m_notationLabel->setAlignment(Qt::AlignCenter);
     resultLayout->addWidget(m_notationLabel);
 
-    m_resultsLabel = new QLabel(resultFrame);
+    m_resultsLabel = new QLabel(m_resultFrame);
     m_resultsLabel->setObjectName(QStringLiteral("diceIndividualResultsLabel"));
     m_resultsLabel->setAlignment(Qt::AlignCenter);
     m_resultsLabel->setWordWrap(true);
     resultLayout->addWidget(m_resultsLabel);
 
-    m_feedbackLabel = new QLabel(resultFrame);
+    m_feedbackLabel = new QLabel(m_resultFrame);
     m_feedbackLabel->setObjectName(QStringLiteral("diceCriticalFeedbackLabel"));
     m_feedbackLabel->setAlignment(Qt::AlignCenter);
     QFont feedbackFont = m_feedbackLabel->font();
     feedbackFont.setBold(true);
+    feedbackFont.setPointSize(feedbackFont.pointSize() + 2);
     m_feedbackLabel->setFont(feedbackFont);
     resultLayout->addWidget(m_feedbackLabel);
-    layout->addWidget(resultFrame);
+    layout->addWidget(m_resultFrame);
+    updateResultCard(false, false);
 
-    auto *historyHeader = new QHBoxLayout;
-    auto *historyTitle = new QLabel(tr("History"), this);
+    auto *historyTitle = new QLabel(tr("History:"), this);
     QFont historyFont = historyTitle->font();
     historyFont.setBold(true);
+    historyFont.setPointSize(historyFont.pointSize() + 1);
     historyTitle->setFont(historyFont);
-    historyHeader->addWidget(historyTitle);
-    historyHeader->addStretch();
-    auto *clearButton = new QPushButton(tr("Clear History"), this);
-    clearButton->setObjectName(QStringLiteral("diceClearHistoryButton"));
-    historyHeader->addWidget(clearButton);
-    layout->addLayout(historyHeader);
+    layout->addWidget(historyTitle);
 
     m_history = new QListWidget(this);
     m_history->setObjectName(QStringLiteral("diceHistoryList"));
     m_history->setAlternatingRowColors(true);
+    m_history->setSpacing(2);
     layout->addWidget(m_history, 1);
 
+    auto *clearButton = new QPushButton(tr("Clear History"), this);
+    clearButton->setObjectName(QStringLiteral("diceClearHistoryButton"));
+    clearButton->setFlat(true);
+    layout->addWidget(clearButton);
+
     m_animationTimer = new QTimer(this);
-    m_animationTimer->setInterval(55);
-    connect(m_dieSelector, &QComboBox::currentIndexChanged, this, [this] {
+    m_animationTimer->setInterval(50);
+    connect(m_dieButtons, &QButtonGroup::idClicked, this, [this](int) {
         m_countSelector->setValue(1);
     });
     connect(m_rollButton, &QPushButton::clicked, this, &DiceRollerWidget::roll);
     connect(m_animationTimer, &QTimer::timeout, this, [this] {
+        m_animationPhase += 38.0;
         showValues(randomValues(m_finalValues.size(), m_finalSides));
     });
     connect(clearButton, &QPushButton::clicked, m_history, &QListWidget::clear);
@@ -144,12 +243,12 @@ void DiceRollerWidget::roll()
         return;
     }
 
-    m_finalSides = m_dieSelector->currentData().toInt();
+    m_finalSides = currentSides();
     const int count = m_countSelector->value();
     m_finalValues = randomValues(count, m_finalSides);
     m_notationLabel->setText(QStringLiteral("%1d%2").arg(count).arg(m_finalSides));
     m_feedbackLabel->clear();
-    m_feedbackLabel->setStyleSheet({});
+    updateResultCard(false, false);
 
     if (m_animationDuration == 0) {
         finishRoll();
@@ -157,7 +256,10 @@ void DiceRollerWidget::roll()
     }
 
     m_rolling = true;
-    m_dieSelector->setEnabled(false);
+    m_animationPhase = 0.0;
+    for (QPushButton *button : std::as_const(m_dieButtonList)) {
+        button->setEnabled(false);
+    }
     m_countSelector->setEnabled(false);
     m_rollButton->setEnabled(false);
     m_rollButton->setText(tr("Rolling..."));
@@ -186,22 +288,28 @@ void DiceRollerWidget::showValues(const QVector<int> &values)
         resultTexts.append(QString::number(value));
     }
     const int total = std::accumulate(values.cbegin(), values.cend(), 0);
-    m_totalLabel->setText(QString::number(total));
-    m_resultsLabel->setText(tr("Results: %1").arg(resultTexts.join(QStringLiteral(", "))));
+    m_totalLabel->setText(tr("Total: %1").arg(total));
+    m_resultsLabel->setText(QStringLiteral("[%1]").arg(resultTexts.join(QStringLiteral(", "))));
+    m_diceFace->setRoll(m_finalSides, total, m_animationPhase, m_rolling);
 }
 
 void DiceRollerWidget::finishRoll()
 {
     m_animationTimer->stop();
+    m_rolling = false;
+    m_animationPhase = 0.0;
     showValues(m_finalValues);
     const int total = std::accumulate(m_finalValues.cbegin(), m_finalValues.cend(), 0);
-    if (m_finalValues.size() == 1 && m_finalSides == 20 && total == 20) {
+    const bool criticalSuccess =
+        m_finalValues.size() == 1 && m_finalSides == 20 && total == 20;
+    const bool criticalFailure =
+        m_finalValues.size() == 1 && m_finalSides == 20 && total == 1;
+    if (criticalSuccess) {
         m_feedbackLabel->setText(tr("Natural 20!"));
-        m_feedbackLabel->setStyleSheet(QStringLiteral("color: #2e7d32;"));
-    } else if (m_finalValues.size() == 1 && m_finalSides == 20 && total == 1) {
+    } else if (criticalFailure) {
         m_feedbackLabel->setText(tr("Critical failure!"));
-        m_feedbackLabel->setStyleSheet(QStringLiteral("color: #c62828;"));
     }
+    updateResultCard(criticalSuccess, criticalFailure);
 
     QStringList resultTexts;
     resultTexts.reserve(m_finalValues.size());
@@ -210,16 +318,43 @@ void DiceRollerWidget::finishRoll()
     }
     const QString notation =
         QStringLiteral("%1d%2").arg(m_finalValues.size()).arg(m_finalSides);
-    m_history->insertItem(
-        0,
-        tr("%1: %2 (%3)").arg(notation, QString::number(total), resultTexts.join(QStringLiteral(", "))));
+    auto *item = new QListWidgetItem(
+        tr("%1: %2\n[%3]").arg(notation, QString::number(total), resultTexts.join(QStringLiteral(", "))));
+    item->setSizeHint(QSize(item->sizeHint().width(), 46));
+    m_history->insertItem(0, item);
     while (m_history->count() > 20) {
         delete m_history->takeItem(m_history->count() - 1);
     }
 
-    m_rolling = false;
-    m_dieSelector->setEnabled(true);
+    for (QPushButton *button : std::as_const(m_dieButtonList)) {
+        button->setEnabled(true);
+    }
     m_countSelector->setEnabled(true);
     m_rollButton->setEnabled(true);
-    m_rollButton->setText(tr("Roll"));
+    m_rollButton->setText(tr("Roll Dice"));
+}
+
+int DiceRollerWidget::currentSides() const
+{
+    const int checked = m_dieButtons->checkedId();
+    return checked > 0 ? checked : 20;
+}
+
+void DiceRollerWidget::updateResultCard(bool criticalSuccess, bool criticalFailure)
+{
+    if (criticalSuccess) {
+        m_resultFrame->setStyleSheet(QStringLiteral(
+            "QFrame#diceResultCard { background-color: rgba(76, 175, 80, 55);"
+            " border: 2px solid #4caf50; border-radius: 8px; }"));
+        m_feedbackLabel->setStyleSheet(QStringLiteral("color: #4caf50;"));
+    } else if (criticalFailure) {
+        m_resultFrame->setStyleSheet(QStringLiteral(
+            "QFrame#diceResultCard { background-color: rgba(244, 67, 54, 55);"
+            " border: 2px solid #f44336; border-radius: 8px; }"));
+        m_feedbackLabel->setStyleSheet(QStringLiteral("color: #f44336;"));
+    } else {
+        m_resultFrame->setStyleSheet(QStringLiteral(
+            "QFrame#diceResultCard { border: 2px solid palette(mid); border-radius: 8px; }"));
+        m_feedbackLabel->setStyleSheet({});
+    }
 }

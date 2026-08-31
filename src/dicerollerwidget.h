@@ -1,11 +1,14 @@
 #pragma once
 
+#include <QList>
 #include <QVector>
 #include <QWidget>
 
 #include <functional>
 
-class QComboBox;
+class DiceFaceWidget;
+class QButtonGroup;
+class QFrame;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -31,10 +34,15 @@ private:
     QVector<int> randomValues(int count, int sides) const;
     void showValues(const QVector<int> &values);
     void finishRoll();
+    int currentSides() const;
+    void updateResultCard(bool criticalSuccess, bool criticalFailure);
 
-    QComboBox *m_dieSelector = nullptr;
+    QButtonGroup *m_dieButtons = nullptr;
+    QList<QPushButton *> m_dieButtonList;
     QSpinBox *m_countSelector = nullptr;
     QPushButton *m_rollButton = nullptr;
+    QFrame *m_resultFrame = nullptr;
+    DiceFaceWidget *m_diceFace = nullptr;
     QLabel *m_totalLabel = nullptr;
     QLabel *m_notationLabel = nullptr;
     QLabel *m_resultsLabel = nullptr;
@@ -45,5 +53,6 @@ private:
     QVector<int> m_finalValues;
     int m_finalSides = 20;
     int m_animationDuration = 650;
+    double m_animationPhase = 0.0;
     bool m_rolling = false;
 };
