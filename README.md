@@ -26,6 +26,7 @@ hexagonal game board. It is designed for Fedora 44 and KDE Plasma 6.
 - Paintable per-hex backgrounds from a configurable image collection
 - Solid color or image board backgrounds
 - Portable session files with embedded images and recent-file access
+- Lazily opened tabletop tools for dice, weighted choices, fantasy gear, and names
 - Native KDE icons, dialogs, menus, and desktop integration
 
 ## Build on Fedora 44
@@ -81,11 +82,17 @@ directory, then bundles Hexboard and its Qt runtime dependencies.
 | Remove content | Right-click a piece or hex and choose a removal action |
 | Save the board | **File > Save** or `Ctrl+S` |
 | Open a board | **File > Open** or `Ctrl+O` |
+| Open a tabletop tool | Choose it from the **Tools** menu |
 
 Sessions use the `.hexboard` extension and include all tile backgrounds, game
 pieces, links, board settings, and the current viewport. Images are embedded in the file,
 so saved sessions can be moved to another Fedora system without copying their
 original image files.
+
+The Dice Roller, Chance Wheel, Gear Generator, and Name Generator open in
+closable tabs beside the permanent Board tab. Tool preferences are stored
+separately from `.hexboard` sessions; closing a tool tab discards its
+in-memory results and reopening it starts a clean instance.
 
 ## License
 

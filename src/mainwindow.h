@@ -3,10 +3,13 @@
 #include <QMainWindow>
 #include <QStringList>
 
+#include <functional>
+
 class BoardWidget;
 class QCloseEvent;
 class QLabel;
 class QMenu;
+class QTabWidget;
 class PlayersPanel;
 
 class MainWindow final : public QMainWindow
@@ -31,7 +34,12 @@ private:
     void updateRecentMenu();
     void updateWindowTitle();
     void setModified(bool modified);
+    void openToolTab(
+        const QString &title,
+        const QString &objectName,
+        const std::function<QWidget *()> &factory);
 
+    QTabWidget *m_tabs = nullptr;
     BoardWidget *m_board = nullptr;
     PlayersPanel *m_playersPanel = nullptr;
     QLabel *m_tileCountLabel = nullptr;

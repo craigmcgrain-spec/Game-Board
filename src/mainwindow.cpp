@@ -1,6 +1,10 @@
 #include "mainwindow.h"
 
 #include "boardwidget.h"
+#include "chancewheelwidget.h"
+#include "dicerollerwidget.h"
+#include "geargeneratorwidget.h"
+#include "namegeneratorwidget.h"
 #include "playerspanel.h"
 #include "tileassetpicker.h"
 
@@ -25,6 +29,8 @@
 #include <QStatusBar>
 #include <QSpinBox>
 #include <QStyle>
+#include <QTabBar>
+#include <QTabWidget>
 #include <QToolBar>
 
 namespace {
@@ -47,12 +53,19 @@ QString sessionFilter()
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_board(new BoardWidget(this))
+    , m_tabs(new QTabWidget(this))
+    , m_board(new BoardWidget(m_tabs))
     , m_tileCountLabel(new QLabel(tr("0 pieces"), this))
     , m_zoomLabel(new QLabel(tr("100%"), this))
 {
     resize(1200, 800);
-    setCentralWidget(m_board);
+    m_tabs->setObjectName(QStringLiteral("mainTabs"));
+    m_tabs->setDocumentMode(true);
+    m_tabs->setTabsClosable(true);
+    m_tabs->addTab(m_board, tr("Board"));
+    m_tabs->tabBar()->setTabButton(0, QTabBar::LeftSide, nullptr);
+    m_tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
+    setCentralWidget(m_tabs);
     auto *playersDock = new QDockWidget(tr("Players"), this);
     playersDock->setObjectName(QStringLiteral("playersDock"));
     playersDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -170,6 +183,16 @@ MainWindow::MainWindow(QWidget *parent)
     boardMenu->addSeparator();
     boardMenu->addAction(clearBoard);
 
+    QMenu *toolsMenu = menuBar()->addMenu(tr("&Tools"));
+    QAction *diceRoller = toolsMenu->addAction(tr("Dice Roller"));
+    diceRoller->setObjectName(QStringLiteral("openDiceRollerAction"));
+    QAction *chanceWheel = toolsMenu->addAction(tr("Chance Wheel"));
+    chanceWheel->setObjectName(QStringLiteral("openChanceWheelAction"));
+    QAction *gearGenerator = toolsMenu->addAction(tr("Gear Generator"));
+    gearGenerator->setObjectName(QStringLiteral("openGearGeneratorAction"));
+    QAction *nameGenerator = toolsMenu->addAction(tr("Name Generator"));
+    nameGenerator->setObjectName(QStringLiteral("openNameGeneratorAction"));
+
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     viewMenu->addAction(playersDock->toggleViewAction());
 
@@ -198,6 +221,34 @@ MainWindow::MainWindow(QWidget *parent)
                 == QMessageBox::Yes) {
             m_board->clearBoard();
         }
+    });
+    connect(diceRoller, &QAction::triggered, this, [this] {
+        openToolTab(tr("Dice Roller"), QStringLiteral("diceRollerWidget"), [this] {
+            return new DiceRollerWidget(m_tabs);
+        });
+    });
+    connect(chanceWheel, &QAction::triggered, this, [this] {
+        openToolTab(tr("Chance Wheel"), QStringLiteral("chanceWheelWidget"), [this] {
+            return new ChanceWheelWidget(m_tabs);
+        });
+    });
+    connect(gearGenerator, &QAction::triggered, this, [this] {
+        openToolTab(tr("Gear Generator"), QStringLiteral("gearGeneratorWidget"), [this] {
+            return new GearGeneratorWidget(m_tabs);
+        });
+    });
+    connect(nameGenerator, &QAction::triggered, this, [this] {
+        openToolTab(tr("Name Generator"), QStringLiteral("nameGeneratorWidget"), [this] {
+            return new NameGeneratorWidget(m_tabs);
+        });
+    });
+    connect(m_tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
+        if (index <= 0) {
+            return;
+        }
+        QWidget *tool = m_tabs->widget(index);
+        m_tabs->removeTab(index);
+        tool->deleteLater();
     });
     connect(paintTiles, &QAction::toggled, m_board, &BoardWidget::setTilePaintMode);
     connect(eraseTiles, &QAction::toggled, m_board, &BoardWidget::setTileEraseMode);
@@ -299,6 +350,23 @@ MainWindow::MainWindow(QWidget *parent)
     tilePicker->loadDirectory(QSettings().value(
         QStringLiteral("tiles/collectionDirectory"),
         QStringLiteral("/home/lyco/Documents/Hexboard Tiles")).toString());
+}
+
+void MainWindow::openToolTab(
+    const QString &title,
+    const QString &objectName,
+    const std::function<QWidget *()> &factory)
+{
+    for (int index = 1; index < m_tabs->count(); ++index) {
+        if (m_tabs->widget(index)->objectName() == objectName) {
+            m_tabs->setCurrentIndex(index);
+            return;
+        }
+    }
+
+    QWidget *tool = factory();
+    const int index = m_tabs->addTab(tool, title);
+    m_tabs->setCurrentIndex(index);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

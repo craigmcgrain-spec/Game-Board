@@ -16,6 +16,14 @@ qt_add_executable(hexboard
     src/mainwindow.h
     src/boardwidget.cpp
     src/boardwidget.h
+    src/dicerollerwidget.cpp
+    src/dicerollerwidget.h
+    src/chancewheelwidget.cpp
+    src/chancewheelwidget.h
+    src/geargeneratorwidget.cpp
+    src/geargeneratorwidget.h
+    src/namegeneratorwidget.cpp
+    src/namegeneratorwidget.h
     src/playerspanel.cpp
     src/playerspanel.h
     src/tileassetpicker.cpp
@@ -46,6 +54,50 @@ if(BUILD_TESTING)
     target_link_libraries(tile_asset_picker_tests PRIVATE Qt6::Widgets Qt6::Test)
     add_test(NAME tile-asset-picker COMMAND tile_asset_picker_tests)
     set_tests_properties(tile-asset-picker PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+
+    qt_add_executable(tabletop_tool_tests
+        tests/tabletoptooltest.cpp
+        src/dicerollerwidget.cpp
+        src/dicerollerwidget.h
+        src/chancewheelwidget.cpp
+        src/chancewheelwidget.h
+        src/geargeneratorwidget.cpp
+        src/geargeneratorwidget.h
+        src/namegeneratorwidget.cpp
+        src/namegeneratorwidget.h
+    )
+    target_include_directories(tabletop_tool_tests PRIVATE src)
+    target_link_libraries(tabletop_tool_tests PRIVATE Qt6::Widgets Qt6::Test)
+    add_test(NAME tabletop-tools COMMAND tabletop_tool_tests)
+    set_tests_properties(tabletop-tools PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+
+    qt_add_executable(main_window_tests
+        tests/mainwindowtest.cpp
+        src/mainwindow.cpp
+        src/mainwindow.h
+        src/boardwidget.cpp
+        src/boardwidget.h
+        src/dicerollerwidget.cpp
+        src/dicerollerwidget.h
+        src/chancewheelwidget.cpp
+        src/chancewheelwidget.h
+        src/geargeneratorwidget.cpp
+        src/geargeneratorwidget.h
+        src/namegeneratorwidget.cpp
+        src/namegeneratorwidget.h
+        src/playerspanel.cpp
+        src/playerspanel.h
+        src/tileassetpicker.cpp
+        src/tileassetpicker.h
+    )
+    target_include_directories(main_window_tests PRIVATE src)
+    target_link_libraries(main_window_tests PRIVATE Qt6::Widgets Qt6::Test)
+    add_test(NAME main-window-tools COMMAND main_window_tests)
+    set_tests_properties(main-window-tools PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
 endif()
