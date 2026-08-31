@@ -24,6 +24,8 @@ qt_add_executable(hexboard
     src/geargeneratorwidget.h
     src/namegeneratorwidget.cpp
     src/namegeneratorwidget.h
+    src/platformmessagefilter.cpp
+    src/platformmessagefilter.h
     src/playerspanel.cpp
     src/playerspanel.h
     src/tileassetpicker.cpp
@@ -89,6 +91,8 @@ if(BUILD_TESTING)
         src/geargeneratorwidget.h
         src/namegeneratorwidget.cpp
         src/namegeneratorwidget.h
+        src/platformmessagefilter.cpp
+        src/platformmessagefilter.h
         src/playerspanel.cpp
         src/playerspanel.h
         src/tileassetpicker.cpp

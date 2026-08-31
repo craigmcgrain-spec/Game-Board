@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "platformmessagefilter.h"
 
 #include <QAction>
 #include <QCoreApplication>
@@ -13,6 +14,18 @@ class MainWindowTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void waylandMenuGrabWarningFilterIsExact()
+    {
+        const QString warning =
+            QStringLiteral("This plugin supports grabbing the mouse only for popup windows");
+        QVERIFY(PlatformMessageFilter::shouldSuppress(QStringLiteral("wayland"), warning));
+        QVERIFY(PlatformMessageFilter::shouldSuppress(QStringLiteral("wayland-egl"), warning));
+        QVERIFY(!PlatformMessageFilter::shouldSuppress(QStringLiteral("xcb"), warning));
+        QVERIFY(!PlatformMessageFilter::shouldSuppress(
+            QStringLiteral("wayland"),
+            QStringLiteral("A different Qt warning")));
+    }
+
     void initTestCase()
     {
         QCoreApplication::setOrganizationName(QStringLiteral("HexboardTests"));
