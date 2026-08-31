@@ -577,6 +577,13 @@ void MainWindow::closeActiveTool()
 
 void MainWindow::setToolsPanelCompact(bool compact)
 {
+    if (compact == m_toolsPanelCompact) {
+        return;
+    }
+    if (compact && m_toolsDock->isVisible() && m_toolsDock->width() > 80) {
+        m_expandedToolsWidth = m_toolsDock->width();
+    }
+    m_toolsPanelCompact = compact;
     m_toolStack->setVisible(!compact);
     m_toolLauncher->setOrientation(Qt::Vertical);
     m_toolLauncher->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -593,9 +600,9 @@ void MainWindow::setToolsPanelCompact(bool compact)
         m_toolsDock->setMaximumWidth(QWIDGETSIZE_MAX);
         m_toolsDock->setMinimumWidth(300);
         if (m_toolsDock->isFloating()) {
-            m_toolsDock->resize(360, m_toolsDock->height());
+            m_toolsDock->resize(m_expandedToolsWidth, m_toolsDock->height());
         } else {
-            resizeDocks({m_toolsDock}, {360}, Qt::Horizontal);
+            resizeDocks({m_toolsDock}, {m_expandedToolsWidth}, Qt::Horizontal);
         }
     }
 }

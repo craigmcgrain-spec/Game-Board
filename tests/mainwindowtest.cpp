@@ -96,6 +96,9 @@ private slots:
         QCOMPARE(stack->count(), 1);
         QWidget *firstDice = stack->currentWidget();
         QCOMPARE(firstDice->objectName(), QStringLiteral("diceRollerWidget"));
+        window.resizeDocks({toolsDock}, {430}, Qt::Horizontal);
+        QTRY_VERIFY_WITH_TIMEOUT(toolsDock->width() >= 400, 500);
+        const int expandedWidth = toolsDock->width();
 
         openDice->trigger();
         QVERIFY(!openDice->isChecked());
@@ -107,6 +110,7 @@ private slots:
         openDice->trigger();
         QCOMPARE(stack->count(), 1);
         QVERIFY(stack->currentWidget() != firstDice);
+        QTRY_VERIFY_WITH_TIMEOUT(qAbs(toolsDock->width() - expandedWidth) <= 2, 500);
         openWheel->trigger();
         QVERIFY(!openDice->isChecked());
         QVERIFY(openWheel->isChecked());

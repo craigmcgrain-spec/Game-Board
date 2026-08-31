@@ -57,5 +57,7 @@ private:
     QMenu *m_recentMenu = nullptr;
     QString m_currentFile;
     QStringList m_recentFiles;
+    int m_expandedToolsWidth = 360;
+    bool m_toolsPanelCompact = false;
     bool m_modified = false;
 };

@@ -99,7 +99,8 @@ sessions.
 The d20, wheel, gear, and name-tag launchers stay in a vertical icon rail on
 the panel's left edge. Click an icon to open its tool beside the rail, click it
 again to close the tool and collapse to the icon rail, or choose another icon
-to replace it with a clean tool instance.
+to replace it with a clean tool instance. A user-resized expanded width is
+restored after collapsing and reopening the tool.
 
 ## License
 
