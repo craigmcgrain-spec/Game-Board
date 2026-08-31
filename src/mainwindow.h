@@ -6,11 +6,13 @@
 #include <functional>
 
 class BoardWidget;
+class QAction;
 class QCloseEvent;
 class QDockWidget;
 class QLabel;
 class QMenu;
 class QTabWidget;
+class QToolBar;
 class PlayersPanel;
 
 class MainWindow final : public QMainWindow
@@ -35,6 +37,7 @@ private:
     void updateRecentMenu();
     void updateWindowTitle();
     void setModified(bool modified);
+    void setToolsPanelCompact(bool compact);
     void openToolPanel(
         const QString &title,
         const QString &objectName,
@@ -42,6 +45,8 @@ private:
 
     QDockWidget *m_toolsDock = nullptr;
     QTabWidget *m_toolTabs = nullptr;
+    QToolBar *m_toolLauncher = nullptr;
+    QAction *m_toggleCompactTools = nullptr;
     BoardWidget *m_board = nullptr;
     PlayersPanel *m_playersPanel = nullptr;
     QLabel *m_tileCountLabel = nullptr;

@@ -26,8 +26,11 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPainterPath>
 #include <QSaveFile>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QStatusBar>
 #include <QSpinBox>
 #include <QStyle>
@@ -37,10 +40,84 @@
 #include <QVBoxLayout>
 #include <QWindow>
 
+#include <cmath>
+#include <numbers>
+
 namespace {
 constexpr int SessionVersion = 6;
 constexpr qint64 MaxSessionBytes = 512LL * 1024 * 1024;
 constexpr int MaxRecentFiles = 8;
+
+enum class ToolIcon
+{
+    D20,
+    Wheel,
+    Gear,
+    NameTag
+};
+
+QIcon toolIcon(ToolIcon type, const QColor &color)
+{
+    QPixmap pixmap(32, 32);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    QColor fill = color;
+    fill.setAlpha(45);
+    painter.setBrush(fill);
+
+    if (type == ToolIcon::D20) {
+        const QPolygonF outline{
+            {16.0, 3.0}, {28.0, 10.0}, {28.0, 23.0},
+            {16.0, 29.0}, {4.0, 23.0}, {4.0, 10.0}
+        };
+        painter.drawPolygon(outline);
+        for (const QPointF &point : outline) {
+            painter.drawLine(QPointF(16.0, 16.0), point);
+        }
+        painter.drawPolygon(QPolygonF{{16.0, 7.0}, {23.0, 20.0}, {9.0, 20.0}});
+    } else if (type == ToolIcon::Wheel) {
+        painter.drawEllipse(QRectF(4.0, 4.0, 24.0, 24.0));
+        painter.drawLine(QPointF(16.0, 16.0), QPointF(16.0, 4.0));
+        painter.drawLine(QPointF(16.0, 16.0), QPointF(27.0, 20.0));
+        painter.drawLine(QPointF(16.0, 16.0), QPointF(7.0, 24.0));
+        painter.setBrush(color);
+        painter.drawEllipse(QPointF(16.0, 16.0), 2.5, 2.5);
+        painter.drawPolygon(QPolygonF{{16.0, 1.0}, {12.5, 6.0}, {19.5, 6.0}});
+    } else if (type == ToolIcon::Gear) {
+        QPainterPath gear;
+        gear.setFillRule(Qt::OddEvenFill);
+        for (int index = 0; index < 24; ++index) {
+            const double radius = index % 3 == 0 ? 14.0 : (index % 3 == 1 ? 11.0 : 12.0);
+            const double angle = -std::numbers::pi / 2.0
+                + index * 2.0 * std::numbers::pi / 24.0;
+            const QPointF point(
+                16.0 + std::cos(angle) * radius,
+                16.0 + std::sin(angle) * radius);
+            if (index == 0) {
+                gear.moveTo(point);
+            } else {
+                gear.lineTo(point);
+            }
+        }
+        gear.closeSubpath();
+        gear.addEllipse(QRectF(12.0, 12.0, 8.0, 8.0));
+        painter.drawPath(gear);
+    } else {
+        QPainterPath tag;
+        tag.moveTo(3.0, 8.0);
+        tag.lineTo(17.0, 3.0);
+        tag.lineTo(29.0, 15.0);
+        tag.lineTo(16.0, 28.0);
+        tag.lineTo(3.0, 16.0);
+        tag.closeSubpath();
+        painter.drawPath(tag);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(QPointF(10.0, 11.0), 2.5, 2.5);
+    }
+    return QIcon(pixmap);
+}
 
 class FloatingDockTitleBar final : public QWidget
 {
@@ -144,11 +221,12 @@ MainWindow::MainWindow(QWidget *parent)
     auto *toolsPanelLayout = new QVBoxLayout(toolsPanel);
     toolsPanelLayout->setContentsMargins(0, 0, 0, 0);
     toolsPanelLayout->setSpacing(0);
-    auto *toolLauncher = new QToolBar(tr("Tabletop Tools"), toolsPanel);
-    toolLauncher->setObjectName(QStringLiteral("toolPanelLauncher"));
-    toolLauncher->setMovable(false);
-    toolLauncher->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    toolsPanelLayout->addWidget(toolLauncher);
+    m_toolLauncher = new QToolBar(tr("Tabletop Tools"), toolsPanel);
+    m_toolLauncher->setObjectName(QStringLiteral("toolPanelLauncher"));
+    m_toolLauncher->setMovable(false);
+    m_toolLauncher->setIconSize(QSize(26, 26));
+    m_toolLauncher->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    toolsPanelLayout->addWidget(m_toolLauncher);
     m_toolTabs->setObjectName(QStringLiteral("toolTabs"));
     m_toolTabs->setAttribute(Qt::WA_StyledBackground, true);
     m_toolTabs->setAutoFillBackground(true);
@@ -283,13 +361,28 @@ MainWindow::MainWindow(QWidget *parent)
     QMenu *toolsMenu = menuBar()->addMenu(tr("&Tools"));
     QAction *diceRoller = toolsMenu->addAction(tr("Dice Roller"));
     diceRoller->setObjectName(QStringLiteral("openDiceRollerAction"));
+    diceRoller->setIcon(toolIcon(ToolIcon::D20, palette().color(QPalette::ButtonText)));
     QAction *chanceWheel = toolsMenu->addAction(tr("Chance Wheel"));
     chanceWheel->setObjectName(QStringLiteral("openChanceWheelAction"));
+    chanceWheel->setIcon(toolIcon(ToolIcon::Wheel, palette().color(QPalette::ButtonText)));
     QAction *gearGenerator = toolsMenu->addAction(tr("Gear Generator"));
     gearGenerator->setObjectName(QStringLiteral("openGearGeneratorAction"));
+    gearGenerator->setIcon(toolIcon(ToolIcon::Gear, palette().color(QPalette::ButtonText)));
     QAction *nameGenerator = toolsMenu->addAction(tr("Name Generator"));
     nameGenerator->setObjectName(QStringLiteral("openNameGeneratorAction"));
-    toolLauncher->addActions({diceRoller, chanceWheel, gearGenerator, nameGenerator});
+    nameGenerator->setIcon(toolIcon(ToolIcon::NameTag, palette().color(QPalette::ButtonText)));
+    m_toolLauncher->addActions({diceRoller, chanceWheel, gearGenerator, nameGenerator});
+    m_toolLauncher->addSeparator();
+    m_toggleCompactTools = m_toolLauncher->addAction(
+        style()->standardIcon(QStyle::SP_ArrowLeft),
+        tr("Collapse tools panel"));
+    m_toggleCompactTools->setObjectName(QStringLiteral("toggleCompactToolsAction"));
+    m_toggleCompactTools->setCheckable(true);
+    connect(
+        m_toggleCompactTools,
+        &QAction::toggled,
+        this,
+        &MainWindow::setToolsPanelCompact);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     QAction *toggleToolsPanel = m_toolsDock->toggleViewAction();
@@ -461,6 +554,7 @@ void MainWindow::openToolPanel(
     const QString &objectName,
     const std::function<QWidget *()> &factory)
 {
+    setToolsPanelCompact(false);
     m_toolsDock->show();
     m_toolsDock->raise();
     for (int index = 0; index < m_toolTabs->count(); ++index) {
@@ -473,6 +567,43 @@ void MainWindow::openToolPanel(
     QWidget *tool = factory();
     const int index = m_toolTabs->addTab(tool, title);
     m_toolTabs->setCurrentIndex(index);
+}
+
+void MainWindow::setToolsPanelCompact(bool compact)
+{
+    {
+        const QSignalBlocker blocker(m_toggleCompactTools);
+        m_toggleCompactTools->setChecked(compact);
+    }
+    m_toolTabs->setVisible(!compact);
+    m_toolLauncher->setOrientation(compact ? Qt::Vertical : Qt::Horizontal);
+    m_toolLauncher->setToolButtonStyle(
+        compact ? Qt::ToolButtonIconOnly : Qt::ToolButtonTextBesideIcon);
+    m_toolLauncher->setSizePolicy(
+        compact ? QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding)
+                : QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed));
+    m_toggleCompactTools->setIcon(style()->standardIcon(
+        compact ? QStyle::SP_ArrowRight : QStyle::SP_ArrowLeft));
+    m_toggleCompactTools->setText(
+        compact ? tr("Expand tools panel") : tr("Collapse tools panel"));
+
+    if (compact) {
+        m_toolsDock->setMinimumWidth(54);
+        m_toolsDock->setMaximumWidth(64);
+        if (m_toolsDock->isFloating()) {
+            m_toolsDock->resize(64, m_toolsDock->height());
+        } else {
+            resizeDocks({m_toolsDock}, {64}, Qt::Horizontal);
+        }
+    } else {
+        m_toolsDock->setMaximumWidth(QWIDGETSIZE_MAX);
+        m_toolsDock->setMinimumWidth(300);
+        if (m_toolsDock->isFloating()) {
+            m_toolsDock->resize(360, m_toolsDock->height());
+        } else {
+            resizeDocks({m_toolsDock}, {360}, Qt::Horizontal);
+        }
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

@@ -97,6 +97,10 @@ with its close button, from **View > Tabletop Tools Panel**, or with
 sessions; closing a tool tab discards its in-memory results and reopening it
 starts a clean instance.
 
+Use the arrow in the tools launcher to collapse the panel to a narrow icon
+rail. Its d20, wheel, gear, and name-tag icons open the corresponding tool and
+expand the panel again.
+
 ## License
 
 MIT

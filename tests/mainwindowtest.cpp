@@ -6,6 +6,7 @@
 #include <QDockWidget>
 #include <QSettings>
 #include <QTabWidget>
+#include <QToolBar>
 #include <QToolButton>
 #include <QtTest>
 
@@ -39,13 +40,29 @@ private slots:
         auto *toolsDock = window.findChild<QDockWidget *>(QStringLiteral("toolsDock"));
         auto *toolsPanel = window.findChild<QWidget *>(QStringLiteral("toolsPanel"));
         auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("toolTabs"));
+        auto *launcher =
+            window.findChild<QToolBar *>(QStringLiteral("toolPanelLauncher"));
         auto *openDice = window.findChild<QAction *>(QStringLiteral("openDiceRollerAction"));
+        auto *openWheel = window.findChild<QAction *>(QStringLiteral("openChanceWheelAction"));
+        auto *openGear = window.findChild<QAction *>(QStringLiteral("openGearGeneratorAction"));
+        auto *openName = window.findChild<QAction *>(QStringLiteral("openNameGeneratorAction"));
+        auto *compactTools =
+            window.findChild<QAction *>(QStringLiteral("toggleCompactToolsAction"));
         auto *toggleTools =
             window.findChild<QAction *>(QStringLiteral("toggleToolsPanelAction"));
         QVERIFY(toolsDock);
         QVERIFY(toolsPanel);
         QVERIFY(tabs);
+        QVERIFY(launcher);
         QVERIFY(openDice);
+        QVERIFY(openWheel);
+        QVERIFY(openGear);
+        QVERIFY(openName);
+        QVERIFY(compactTools);
+        QVERIFY(!openDice->icon().isNull());
+        QVERIFY(!openWheel->icon().isNull());
+        QVERIFY(!openGear->icon().isNull());
+        QVERIFY(!openName->icon().isNull());
         QVERIFY(toggleTools);
         QVERIFY(toolsDock->features().testFlag(QDockWidget::DockWidgetClosable));
         QVERIFY(toolsDock->autoFillBackground());
@@ -72,7 +89,19 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!toolsDock->isFloating(), 500);
         QVERIFY(!toolsDock->titleBarWidget());
 
+        compactTools->trigger();
+        QVERIFY(compactTools->isChecked());
+        QVERIFY(tabs->isHidden());
+        QCOMPARE(launcher->orientation(), Qt::Vertical);
+        QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QVERIFY(toolsDock->maximumWidth() <= 64);
+        QTRY_VERIFY_WITH_TIMEOUT(toolsDock->width() <= 80, 500);
+
         openDice->trigger();
+        QVERIFY(!compactTools->isChecked());
+        QVERIFY(!tabs->isHidden());
+        QCOMPARE(launcher->orientation(), Qt::Horizontal);
+        QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonTextBesideIcon);
         QCOMPARE(tabs->count(), 1);
         QWidget *firstDice = tabs->currentWidget();
         QCOMPARE(firstDice->objectName(), QStringLiteral("diceRollerWidget"));
