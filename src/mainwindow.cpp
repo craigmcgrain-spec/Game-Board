@@ -31,10 +31,10 @@
 #include <QSaveFile>
 #include <QSettings>
 #include <QSignalBlocker>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QSpinBox>
 #include <QStyle>
-#include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
 #include <QWindow>
@@ -196,7 +196,7 @@ QString sessionFilter()
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_toolsDock(new QDockWidget(tr("Tabletop Tools"), this))
-    , m_toolTabs(new QTabWidget(m_toolsDock))
+    , m_toolStack(new QStackedWidget(m_toolsDock))
     , m_board(new BoardWidget(this))
     , m_tileCountLabel(new QLabel(tr("0 pieces"), this))
     , m_zoomLabel(new QLabel(tr("100%"), this))
@@ -228,13 +228,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_toolLauncher->setToolButtonStyle(Qt::ToolButtonIconOnly);
     m_toolLauncher->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     toolsPanelLayout->addWidget(m_toolLauncher);
-    m_toolTabs->setObjectName(QStringLiteral("toolTabs"));
-    m_toolTabs->setAttribute(Qt::WA_StyledBackground, true);
-    m_toolTabs->setAutoFillBackground(true);
-    m_toolTabs->setDocumentMode(true);
-    m_toolTabs->setTabsClosable(true);
-    m_toolTabs->setUsesScrollButtons(true);
-    toolsPanelLayout->addWidget(m_toolTabs, 1);
+    m_toolStack->setObjectName(QStringLiteral("toolContentStack"));
+    m_toolStack->setAttribute(Qt::WA_StyledBackground, true);
+    m_toolStack->setAutoFillBackground(true);
+    toolsPanelLayout->addWidget(m_toolStack, 1);
     m_toolsDock->setWidget(toolsPanel);
     addDockWidget(Qt::LeftDockWidgetArea, m_toolsDock);
     auto *floatingToolsTitle = new FloatingDockTitleBar(m_toolsDock);
@@ -362,28 +359,23 @@ MainWindow::MainWindow(QWidget *parent)
     QMenu *toolsMenu = menuBar()->addMenu(tr("&Tools"));
     QAction *diceRoller = toolsMenu->addAction(tr("Dice Roller"));
     diceRoller->setObjectName(QStringLiteral("openDiceRollerAction"));
+    diceRoller->setCheckable(true);
     diceRoller->setIcon(toolIcon(ToolIcon::D20, palette().color(QPalette::ButtonText)));
     QAction *chanceWheel = toolsMenu->addAction(tr("Chance Wheel"));
     chanceWheel->setObjectName(QStringLiteral("openChanceWheelAction"));
+    chanceWheel->setCheckable(true);
     chanceWheel->setIcon(toolIcon(ToolIcon::Wheel, palette().color(QPalette::ButtonText)));
     QAction *gearGenerator = toolsMenu->addAction(tr("Gear Generator"));
     gearGenerator->setObjectName(QStringLiteral("openGearGeneratorAction"));
+    gearGenerator->setCheckable(true);
     gearGenerator->setIcon(toolIcon(ToolIcon::Gear, palette().color(QPalette::ButtonText)));
     QAction *nameGenerator = toolsMenu->addAction(tr("Name Generator"));
     nameGenerator->setObjectName(QStringLiteral("openNameGeneratorAction"));
+    nameGenerator->setCheckable(true);
     nameGenerator->setIcon(toolIcon(ToolIcon::NameTag, palette().color(QPalette::ButtonText)));
+    m_toolActions = {diceRoller, chanceWheel, gearGenerator, nameGenerator};
     m_toolLauncher->addActions({diceRoller, chanceWheel, gearGenerator, nameGenerator});
-    m_toolLauncher->addSeparator();
-    m_toggleCompactTools = m_toolLauncher->addAction(
-        style()->standardIcon(QStyle::SP_ArrowLeft),
-        tr("Collapse tools panel"));
-    m_toggleCompactTools->setObjectName(QStringLiteral("toggleCompactToolsAction"));
-    m_toggleCompactTools->setCheckable(true);
-    connect(
-        m_toggleCompactTools,
-        &QAction::toggled,
-        this,
-        &MainWindow::setToolsPanelCompact);
+    setToolsPanelCompact(true);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     QAction *toggleToolsPanel = m_toolsDock->toggleViewAction();
@@ -421,32 +413,24 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
     connect(diceRoller, &QAction::triggered, this, [this] {
-        openToolPanel(tr("Dice Roller"), QStringLiteral("diceRollerWidget"), [this] {
-            return new DiceRollerWidget(m_toolTabs);
+        toggleToolPanel(QStringLiteral("diceRollerWidget"), m_toolActions.at(0), [this] {
+            return new DiceRollerWidget(m_toolStack);
         });
     });
     connect(chanceWheel, &QAction::triggered, this, [this] {
-        openToolPanel(tr("Chance Wheel"), QStringLiteral("chanceWheelWidget"), [this] {
-            return new ChanceWheelWidget(m_toolTabs);
+        toggleToolPanel(QStringLiteral("chanceWheelWidget"), m_toolActions.at(1), [this] {
+            return new ChanceWheelWidget(m_toolStack);
         });
     });
     connect(gearGenerator, &QAction::triggered, this, [this] {
-        openToolPanel(tr("Gear Generator"), QStringLiteral("gearGeneratorWidget"), [this] {
-            return new GearGeneratorWidget(m_toolTabs);
+        toggleToolPanel(QStringLiteral("gearGeneratorWidget"), m_toolActions.at(2), [this] {
+            return new GearGeneratorWidget(m_toolStack);
         });
     });
     connect(nameGenerator, &QAction::triggered, this, [this] {
-        openToolPanel(tr("Name Generator"), QStringLiteral("nameGeneratorWidget"), [this] {
-            return new NameGeneratorWidget(m_toolTabs);
+        toggleToolPanel(QStringLiteral("nameGeneratorWidget"), m_toolActions.at(3), [this] {
+            return new NameGeneratorWidget(m_toolStack);
         });
-    });
-    connect(m_toolTabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        QWidget *tool = m_toolTabs->widget(index);
-        m_toolTabs->removeTab(index);
-        tool->deleteLater();
     });
     connect(paintTiles, &QAction::toggled, m_board, &BoardWidget::setTilePaintMode);
     connect(eraseTiles, &QAction::toggled, m_board, &BoardWidget::setTileEraseMode);
@@ -550,41 +534,53 @@ MainWindow::MainWindow(QWidget *parent)
         QStringLiteral("/home/lyco/Documents/Hexboard Tiles")).toString());
 }
 
-void MainWindow::openToolPanel(
-    const QString &title,
+void MainWindow::toggleToolPanel(
     const QString &objectName,
+    QAction *action,
     const std::function<QWidget *()> &factory)
 {
+    const bool sameTool =
+        m_activeTool && m_activeTool->objectName() == objectName;
+    if (sameTool && !m_toolsDock->isHidden() && !m_toolStack->isHidden()) {
+        closeActiveTool();
+        setToolsPanelCompact(true);
+        return;
+    }
+
+    if (!sameTool) {
+        closeActiveTool();
+        m_activeTool = factory();
+        m_toolStack->addWidget(m_activeTool);
+        m_toolStack->setCurrentWidget(m_activeTool);
+    }
+    for (QAction *toolAction : std::as_const(m_toolActions)) {
+        const QSignalBlocker blocker(toolAction);
+        toolAction->setChecked(toolAction == action);
+    }
     setToolsPanelCompact(false);
     m_toolsDock->show();
     m_toolsDock->raise();
-    for (int index = 0; index < m_toolTabs->count(); ++index) {
-        if (m_toolTabs->widget(index)->objectName() == objectName) {
-            m_toolTabs->setCurrentIndex(index);
-            return;
-        }
-    }
+}
 
-    QWidget *tool = factory();
-    const int index = m_toolTabs->addTab(tool, title);
-    m_toolTabs->setCurrentIndex(index);
+void MainWindow::closeActiveTool()
+{
+    if (m_activeTool) {
+        m_toolStack->removeWidget(m_activeTool);
+        m_activeTool->deleteLater();
+        m_activeTool = nullptr;
+    }
+    for (QAction *action : std::as_const(m_toolActions)) {
+        const QSignalBlocker blocker(action);
+        action->setChecked(false);
+    }
 }
 
 void MainWindow::setToolsPanelCompact(bool compact)
 {
-    {
-        const QSignalBlocker blocker(m_toggleCompactTools);
-        m_toggleCompactTools->setChecked(compact);
-    }
-    m_toolTabs->setVisible(!compact);
+    m_toolStack->setVisible(!compact);
     m_toolLauncher->setOrientation(Qt::Vertical);
     m_toolLauncher->setToolButtonStyle(Qt::ToolButtonIconOnly);
     m_toolLauncher->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-    m_toggleCompactTools->setIcon(style()->standardIcon(
-        compact ? QStyle::SP_ArrowRight : QStyle::SP_ArrowLeft));
-    m_toggleCompactTools->setText(
-        compact ? tr("Expand tools panel") : tr("Collapse tools panel"));
-
     if (compact) {
         m_toolsDock->setMinimumWidth(54);
         m_toolsDock->setMaximumWidth(64);

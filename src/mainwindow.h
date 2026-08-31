@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QList>
 #include <QMainWindow>
 #include <QStringList>
 
@@ -11,7 +12,7 @@ class QCloseEvent;
 class QDockWidget;
 class QLabel;
 class QMenu;
-class QTabWidget;
+class QStackedWidget;
 class QToolBar;
 class PlayersPanel;
 
@@ -38,15 +39,17 @@ private:
     void updateWindowTitle();
     void setModified(bool modified);
     void setToolsPanelCompact(bool compact);
-    void openToolPanel(
-        const QString &title,
+    void toggleToolPanel(
         const QString &objectName,
+        QAction *action,
         const std::function<QWidget *()> &factory);
+    void closeActiveTool();
 
     QDockWidget *m_toolsDock = nullptr;
-    QTabWidget *m_toolTabs = nullptr;
+    QStackedWidget *m_toolStack = nullptr;
     QToolBar *m_toolLauncher = nullptr;
-    QAction *m_toggleCompactTools = nullptr;
+    QList<QAction *> m_toolActions;
+    QWidget *m_activeTool = nullptr;
     BoardWidget *m_board = nullptr;
     PlayersPanel *m_playersPanel = nullptr;
     QLabel *m_tileCountLabel = nullptr;

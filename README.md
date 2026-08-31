@@ -89,17 +89,17 @@ pieces, links, board settings, and the current viewport. Images are embedded in 
 so saved sessions can be moved to another Fedora system without copying their
 original image files.
 
-The Dice Roller, Chance Wheel, Gear Generator, and Name Generator open in
-closable tabs in the **Tabletop Tools** panel on the left side of the board.
+The Dice Roller, Chance Wheel, Gear Generator, and Name Generator open one at
+a time in the **Tabletop Tools** panel on the left side of the board.
 Use its launcher buttons or the **Tools** menu; the panel can also be hidden
 with its close button, from **View > Tabletop Tools Panel**, or with
 `Ctrl+Shift+T`. Tool preferences are stored separately from `.hexboard`
-sessions; closing a tool tab discards its in-memory results and reopening it
-starts a clean instance.
+sessions.
 
 The d20, wheel, gear, and name-tag launchers stay in a vertical icon rail on
-the panel's left edge. Use its arrow to collapse the panel to just that narrow
-rail; choosing a tool expands its content beside the icons.
+the panel's left edge. Click an icon to open its tool beside the rail, click it
+again to close the tool and collapse to the icon rail, or choose another icon
+to replace it with a clean tool instance.
 
 ## License
 

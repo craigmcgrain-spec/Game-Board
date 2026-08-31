@@ -5,7 +5,7 @@
 #include <QCoreApplication>
 #include <QDockWidget>
 #include <QSettings>
-#include <QTabWidget>
+#include <QStackedWidget>
 #include <QToolBar>
 #include <QToolButton>
 #include <QtTest>
@@ -34,31 +34,29 @@ private slots:
         QSettings().clear();
     }
 
-    void toolsUseLeftPanelAndRemainLazyUniqueAndRecreated()
+    void toolIconsToggleSingleCleanToolWithoutTabs()
     {
         MainWindow window;
         auto *toolsDock = window.findChild<QDockWidget *>(QStringLiteral("toolsDock"));
         auto *toolsPanel = window.findChild<QWidget *>(QStringLiteral("toolsPanel"));
-        auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("toolTabs"));
+        auto *stack =
+            window.findChild<QStackedWidget *>(QStringLiteral("toolContentStack"));
         auto *launcher =
             window.findChild<QToolBar *>(QStringLiteral("toolPanelLauncher"));
         auto *openDice = window.findChild<QAction *>(QStringLiteral("openDiceRollerAction"));
         auto *openWheel = window.findChild<QAction *>(QStringLiteral("openChanceWheelAction"));
         auto *openGear = window.findChild<QAction *>(QStringLiteral("openGearGeneratorAction"));
         auto *openName = window.findChild<QAction *>(QStringLiteral("openNameGeneratorAction"));
-        auto *compactTools =
-            window.findChild<QAction *>(QStringLiteral("toggleCompactToolsAction"));
         auto *toggleTools =
             window.findChild<QAction *>(QStringLiteral("toggleToolsPanelAction"));
         QVERIFY(toolsDock);
         QVERIFY(toolsPanel);
-        QVERIFY(tabs);
+        QVERIFY(stack);
         QVERIFY(launcher);
         QVERIFY(openDice);
         QVERIFY(openWheel);
         QVERIFY(openGear);
         QVERIFY(openName);
-        QVERIFY(compactTools);
         QVERIFY(!openDice->icon().isNull());
         QVERIFY(!openWheel->icon().isNull());
         QVERIFY(!openGear->icon().isNull());
@@ -67,11 +65,12 @@ private slots:
         QVERIFY(toolsDock->features().testFlag(QDockWidget::DockWidgetClosable));
         QVERIFY(toolsDock->autoFillBackground());
         QVERIFY(toolsPanel->autoFillBackground());
-        QVERIFY(tabs->autoFillBackground());
+        QVERIFY(stack->autoFillBackground());
         window.show();
         QTRY_VERIFY_WITH_TIMEOUT(toolsDock->isVisible(), 500);
         QCOMPARE(window.dockWidgetArea(toolsDock), Qt::LeftDockWidgetArea);
-        QCOMPARE(tabs->count(), 0);
+        QCOMPARE(stack->count(), 0);
+        QVERIFY(stack->isHidden());
         QVERIFY(window.centralWidget());
         QCOMPARE(window.centralWidget()->metaObject()->className(), "BoardWidget");
 
@@ -89,32 +88,32 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!toolsDock->isFloating(), 500);
         QVERIFY(!toolsDock->titleBarWidget());
 
-        compactTools->trigger();
-        QVERIFY(compactTools->isChecked());
-        QVERIFY(tabs->isHidden());
+        openDice->trigger();
+        QVERIFY(openDice->isChecked());
+        QVERIFY(!stack->isHidden());
         QCOMPARE(launcher->orientation(), Qt::Vertical);
         QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QCOMPARE(stack->count(), 1);
+        QWidget *firstDice = stack->currentWidget();
+        QCOMPARE(firstDice->objectName(), QStringLiteral("diceRollerWidget"));
+
+        openDice->trigger();
+        QVERIFY(!openDice->isChecked());
+        QVERIFY(stack->isHidden());
+        QCOMPARE(stack->count(), 0);
         QVERIFY(toolsDock->maximumWidth() <= 64);
         QTRY_VERIFY_WITH_TIMEOUT(toolsDock->width() <= 80, 500);
 
         openDice->trigger();
-        QVERIFY(!compactTools->isChecked());
-        QVERIFY(!tabs->isHidden());
-        QCOMPARE(launcher->orientation(), Qt::Vertical);
-        QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonIconOnly);
-        QCOMPARE(tabs->count(), 1);
-        QWidget *firstDice = tabs->currentWidget();
-        QCOMPARE(firstDice->objectName(), QStringLiteral("diceRollerWidget"));
-
-        openDice->trigger();
-        QCOMPARE(tabs->count(), 1);
-        QCOMPARE(tabs->currentWidget(), firstDice);
-
-        tabs->tabCloseRequested(0);
-        QCOMPARE(tabs->count(), 0);
-        openDice->trigger();
-        QCOMPARE(tabs->count(), 1);
-        QVERIFY(tabs->currentWidget() != firstDice);
+        QCOMPARE(stack->count(), 1);
+        QVERIFY(stack->currentWidget() != firstDice);
+        openWheel->trigger();
+        QVERIFY(!openDice->isChecked());
+        QVERIFY(openWheel->isChecked());
+        QCOMPARE(stack->count(), 1);
+        QCOMPARE(
+            stack->currentWidget()->objectName(),
+            QStringLiteral("chanceWheelWidget"));
 
         toggleTools->trigger();
         QVERIFY(toolsDock->isHidden());
@@ -122,9 +121,10 @@ private slots:
         QVERIFY(!toolsDock->isHidden());
         toggleTools->trigger();
         QVERIFY(toolsDock->isHidden());
-        openDice->trigger();
+        openWheel->trigger();
         QVERIFY(!toolsDock->isHidden());
-        QCOMPARE(tabs->count(), 1);
+        QVERIFY(!stack->isHidden());
+        QCOMPARE(stack->count(), 1);
     }
 
     void cleanupTestCase()
