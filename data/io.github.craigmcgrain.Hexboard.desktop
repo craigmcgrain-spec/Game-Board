@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Hexboard
-Comment=Arrange game pieces on an infinite hexagonal game board
+Name=Hexboard Integrated
+Comment=Run an infinite tabletop game board with integrated utility tools
 Exec=hexboard
 Icon=io.github.craigmcgrain.Hexboard
 Categories=Game;BoardGame;

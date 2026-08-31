@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Hexboard VERSION 1.0.0 LANGUAGES CXX)
+project(HexboardIntegrated VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -119,9 +119,9 @@ install(FILES data/io.github.craigmcgrain.Hexboard.metainfo.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
 )
 
-set(CPACK_PACKAGE_NAME "hexboard")
+set(CPACK_PACKAGE_NAME "hexboard-integrated")
 set(CPACK_PACKAGE_VENDOR "Craig McGrain")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "An infinite hexagonal game board")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "An integrated tabletop game board and utility suite")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.5")

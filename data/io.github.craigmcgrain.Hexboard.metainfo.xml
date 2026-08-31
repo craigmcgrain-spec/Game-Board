@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>io.github.craigmcgrain.Hexboard</id>
-  <name>Hexboard</name>
-  <summary>Arrange game pieces on an infinite hexagonal game board</summary>
+  <name>Hexboard Integrated</name>
+  <summary>Run an infinite tabletop game board with integrated utility tools</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <developer id="io.github.craigmcgrain">
@@ -10,10 +10,14 @@
   </developer>
   <url type="homepage">https://github.com/craigmcgrain-spec/Game-Board</url>
   <description>
-    <p>Hexboard is an infinite, zoomable tabletop canvas. Paint individual tile
+    <p>Hexboard Integrated is an infinite, zoomable tabletop canvas. Paint individual tile
     backgrounds, arrange named game pieces, track player health and equipment,
-    and link tiles visually.</p>
+    link tiles visually, roll polyhedral dice, spin weighted choices, and
+    generate fantasy gear and names.</p>
   </description>
   <launchable type="desktop-id">io.github.craigmcgrain.Hexboard.desktop</launchable>
+  <releases>
+    <release version="1.0.0" date="2026-08-31"/>
+  </releases>
   <content_rating type="oars-1.1"/>
 </component>

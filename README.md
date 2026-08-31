@@ -1,7 +1,8 @@
-# Hexboard
+# Hexboard Integrated
 
-Hexboard is a native Qt 6 desktop app for arranging game pieces on an infinite
-hexagonal game board. It is designed for Fedora 44 and KDE Plasma 6.
+Hexboard Integrated 1.0 is a native Qt 6 desktop app for arranging game pieces
+on an infinite hexagonal game board and running tabletop utilities. It is
+designed for Fedora 44 and KDE Plasma 6.
 
 ## Features
 
@@ -55,11 +56,11 @@ To build a portable x86_64 AppImage:
 
 ```bash
 ./scripts/build-appimage.sh
-./Hexboard-x86_64.AppImage
+./Hexboard-Integrated-v1.0.0-x86_64.AppImage
 ```
 
 The script downloads linuxdeploy and its Qt plugin into an ignored local tools
-directory, then bundles Hexboard and its Qt runtime dependencies.
+directory, then bundles Hexboard Integrated and its Qt runtime dependencies.
 
 ## Controls
 

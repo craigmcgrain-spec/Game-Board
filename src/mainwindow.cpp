@@ -189,7 +189,7 @@ QIcon colorIcon(const QColor &color)
 
 QString sessionFilter()
 {
-    return MainWindow::tr("Hexboard sessions (*.hexboard);;All files (*)");
+    return MainWindow::tr("Hexboard Integrated sessions (*.hexboard);;All files (*)");
 }
 }
 
@@ -387,8 +387,8 @@ MainWindow::MainWindow(QWidget *parent)
     viewMenu->addAction(playersDock->toggleViewAction());
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
-    QAction *instructions = helpMenu->addAction(tr("How to use Hexboard"));
-    QAction *about = helpMenu->addAction(tr("About Hexboard"));
+    QAction *instructions = helpMenu->addAction(tr("How to use Hexboard Integrated"));
+    QAction *about = helpMenu->addAction(tr("About Hexboard Integrated"));
 
     statusBar()->showMessage(
         tr("Drop game-piece images onto hexes. Drag empty space to pan and scroll to zoom."));
@@ -492,7 +492,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(instructions, &QAction::triggered, this, [this] {
         QMessageBox::information(
             this,
-            tr("How to use Hexboard"),
+            tr("How to use Hexboard Integrated"),
             tr("<b>Add:</b> Drag game-piece images from Dolphin onto the board.<br>"
                "<b>Move:</b> Drag an individual piece from one hex to another.<br>"
                "<b>Resize:</b> Right-click a piece and use the Game piece size menu.<br>"
@@ -512,8 +512,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(about, &QAction::triggered, this, [this] {
         QMessageBox::about(
             this,
-            tr("About Hexboard"),
-            tr("<b>Hexboard 1.0</b><br>An infinite hexagonal canvas for tabletop games."));
+            tr("About Hexboard Integrated"),
+            tr("<b>Hexboard Integrated 1.0</b><br>"
+               "An infinite hexagonal canvas with integrated tabletop utilities."));
     });
     connect(m_board, &BoardWidget::pieceCountChanged, this, [this](int count) {
         m_tileCountLabel->setText(tr("%n piece(s)", nullptr, count));
@@ -646,7 +647,7 @@ bool MainWindow::saveSessionAs()
         : m_currentFile;
     QString path = QFileDialog::getSaveFileName(
         this,
-        tr("Save Hexboard session"),
+        tr("Save Hexboard Integrated session"),
         suggestion,
         sessionFilter());
     if (path.isEmpty()) {
@@ -788,7 +789,7 @@ void MainWindow::openSession()
     }
     const QString path = QFileDialog::getOpenFileName(
         this,
-        tr("Open Hexboard session"),
+        tr("Open Hexboard Integrated session"),
         m_currentFile.isEmpty() ? QDir::homePath() : m_currentFile,
         sessionFilter());
     if (!path.isEmpty()) {
@@ -841,7 +842,7 @@ void MainWindow::updateWindowTitle()
     const QString name = m_currentFile.isEmpty()
         ? tr("Untitled")
         : QFileInfo(m_currentFile).fileName();
-    setWindowTitle(tr("%1[*] — Hexboard").arg(name));
+    setWindowTitle(tr("%1[*] — Hexboard Integrated").arg(name));
     setWindowModified(m_modified);
 }
 

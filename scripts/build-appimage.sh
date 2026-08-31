@@ -6,7 +6,7 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tools_dir="${root_dir}/.appimage-tools"
 build_dir="${root_dir}/build-appimage"
 app_dir="${root_dir}/AppDir"
-output="${root_dir}/Hexboard-x86_64.AppImage"
+output="${root_dir}/Hexboard-Integrated-v1.0.0-x86_64.AppImage"
 
 mkdir -p "${tools_dir}"
 
