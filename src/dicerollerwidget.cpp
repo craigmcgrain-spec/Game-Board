@@ -9,6 +9,8 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPainter>
+#include <QPainterPath>
+#include <QPolygonF>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QSpinBox>
@@ -36,6 +38,8 @@ public:
         m_value = value;
         m_phase = phase;
         m_rolling = rolling;
+        setProperty("dieSides", sides);
+        setAccessibleName(tr("Animated d%1 die").arg(sides));
         update();
     }
 
@@ -51,29 +55,137 @@ protected:
             painter.scale(pulse, pulse);
         }
 
-        const QRectF dieRect(-36.0, -36.0, 72.0, 72.0);
         QColor faceColor = palette().color(QPalette::Highlight);
         if (!isEnabled()) {
             faceColor = palette().color(QPalette::Mid);
         }
+        const QPainterPath diePath = outlinePath();
         painter.setPen(QPen(faceColor.darker(135), 3.0));
         painter.setBrush(faceColor);
-        painter.drawRoundedRect(dieRect, 13.0, 13.0);
+        painter.drawPath(diePath);
+        drawFacets(&painter, diePath, faceColor);
 
         painter.setPen(palette().color(QPalette::HighlightedText));
         QFont valueFont = painter.font();
         valueFont.setBold(true);
-        valueFont.setPointSize(valueFont.pointSize() + 11);
+        valueFont.setPointSize(valueFont.pointSize() + (m_value >= 100 ? 6 : 10));
         painter.setFont(valueFont);
-        painter.drawText(dieRect.adjusted(0, 2, 0, -9), Qt::AlignCenter, QString::number(m_value));
+        const QRectF valueRect(-34.0, -28.0, 68.0, 49.0);
+        painter.drawText(valueRect, Qt::AlignCenter, QString::number(m_value));
 
         QFont typeFont = painter.font();
-        typeFont.setPointSize(std::max(7, typeFont.pointSize() - 12));
+        typeFont.setPointSize(std::max(7, typeFont.pointSize() - 10));
         painter.setFont(typeFont);
-        painter.drawText(dieRect.adjusted(0, 48, 0, 0), Qt::AlignHCenter, QStringLiteral("d%1").arg(m_sides));
+        painter.drawText(
+            QRectF(-32.0, 18.0, 64.0, 20.0),
+            Qt::AlignHCenter,
+            QStringLiteral("d%1").arg(m_sides));
     }
 
 private:
+    static QPolygonF regularPolygon(int vertices, double radius, double startDegrees = -90.0)
+    {
+        QPolygonF polygon;
+        polygon.reserve(vertices);
+        for (int index = 0; index < vertices; ++index) {
+            const double angle =
+                qDegreesToRadians(startDegrees + index * 360.0 / vertices);
+            polygon.append(QPointF(std::cos(angle) * radius, std::sin(angle) * radius));
+        }
+        return polygon;
+    }
+
+    QPainterPath outlinePath() const
+    {
+        QPainterPath path;
+        if (m_sides == 100) {
+            path.addEllipse(QRectF(-39.0, -39.0, 78.0, 78.0));
+            return path;
+        }
+
+        QPolygonF polygon;
+        switch (m_sides) {
+        case 4:
+            polygon = {{0.0, -41.0}, {38.0, 31.0}, {-38.0, 31.0}};
+            break;
+        case 6:
+            polygon = {{-33.0, -33.0}, {27.0, -38.0}, {39.0, -23.0},
+                       {34.0, 29.0}, {7.0, 39.0}, {-37.0, 24.0}};
+            break;
+        case 8:
+            polygon = {{0.0, -42.0}, {37.0, 0.0}, {0.0, 42.0}, {-37.0, 0.0}};
+            break;
+        case 10:
+            polygon = {{0.0, -42.0}, {31.0, -18.0}, {38.0, 12.0},
+                       {0.0, 40.0}, {-38.0, 12.0}, {-31.0, -18.0}};
+            break;
+        case 12:
+            polygon = regularPolygon(10, 41.0, -90.0);
+            break;
+        case 20:
+        default:
+            polygon = regularPolygon(6, 42.0, -90.0);
+            break;
+        }
+        path.addPolygon(polygon);
+        path.closeSubpath();
+        return path;
+    }
+
+    void drawFacets(QPainter *painter, const QPainterPath &diePath, const QColor &faceColor) const
+    {
+        painter->save();
+        painter->setClipPath(diePath);
+        QColor facetColor = faceColor.lighter(150);
+        facetColor.setAlpha(150);
+        painter->setPen(QPen(facetColor, 1.5));
+        painter->setBrush(Qt::NoBrush);
+
+        if (m_sides == 4) {
+            const QPointF center(0.0, 10.0);
+            painter->drawLine(center, QPointF(0.0, -41.0));
+            painter->drawLine(center, QPointF(38.0, 31.0));
+            painter->drawLine(center, QPointF(-38.0, 31.0));
+        } else if (m_sides == 6) {
+            const QPointF center(4.0, -6.0);
+            painter->drawLine(QPointF(-33.0, -33.0), center);
+            painter->drawLine(QPointF(27.0, -38.0), center);
+            painter->drawLine(QPointF(39.0, -23.0), center);
+            painter->drawLine(QPointF(7.0, 39.0), center);
+            painter->drawLine(QPointF(-37.0, 24.0), center);
+        } else if (m_sides == 8) {
+            painter->drawLine(QPointF(-37.0, 0.0), QPointF(37.0, 0.0));
+            painter->drawLine(QPointF(0.0, -42.0), QPointF(0.0, 42.0));
+            painter->drawLine(QPointF(-37.0, 0.0), QPointF(0.0, 12.0));
+            painter->drawLine(QPointF(37.0, 0.0), QPointF(0.0, 12.0));
+        } else if (m_sides == 10) {
+            for (const QPointF &point : QPolygonF{
+                     {0.0, -42.0}, {31.0, -18.0}, {38.0, 12.0},
+                     {0.0, 40.0}, {-38.0, 12.0}, {-31.0, -18.0}}) {
+                painter->drawLine(QPointF(0.0, 4.0), point);
+            }
+        } else if (m_sides == 12) {
+            const QPolygonF inner = regularPolygon(5, 22.0, -90.0);
+            painter->drawPolygon(inner);
+            const QPolygonF outer = regularPolygon(10, 41.0, -90.0);
+            for (int index = 0; index < inner.size(); ++index) {
+                painter->drawLine(inner.at(index), outer.at(index * 2));
+                painter->drawLine(inner.at(index), outer.at((index * 2 + 1) % outer.size()));
+            }
+        } else if (m_sides == 20) {
+            const QPolygonF outer = regularPolygon(6, 42.0, -90.0);
+            for (const QPointF &point : outer) {
+                painter->drawLine(QPointF(0.0, 0.0), point);
+            }
+            painter->drawPolygon(regularPolygon(3, 23.0, -90.0));
+        } else {
+            painter->drawEllipse(QRectF(-18.0, -39.0, 36.0, 78.0));
+            painter->drawEllipse(QRectF(-32.0, -39.0, 64.0, 78.0));
+            painter->drawLine(QPointF(-39.0, 0.0), QPointF(39.0, 0.0));
+        }
+        painter->restore();
+    }
+
     int m_sides = 20;
     int m_value = 20;
     double m_phase = 0.0;
@@ -209,8 +321,9 @@ DiceRollerWidget::DiceRollerWidget(QWidget *parent)
 
     m_animationTimer = new QTimer(this);
     m_animationTimer->setInterval(50);
-    connect(m_dieButtons, &QButtonGroup::idClicked, this, [this](int) {
+    connect(m_dieButtons, &QButtonGroup::idClicked, this, [this](int sides) {
         m_countSelector->setValue(1);
+        m_diceFace->setRoll(sides, sides, 0.0, false);
     });
     connect(m_rollButton, &QPushButton::clicked, this, &DiceRollerWidget::roll);
     connect(m_animationTimer, &QTimer::timeout, this, [this] {

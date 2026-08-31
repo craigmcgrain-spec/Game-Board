@@ -34,12 +34,14 @@ private slots:
             return upperBound - 1;
         });
         auto *d6 = widget.findChild<QPushButton *>(QStringLiteral("diceTypeD6Button"));
+        auto *animatedFace = widget.findChild<QWidget *>(QStringLiteral("diceAnimatedFace"));
         auto *count = widget.findChild<QSpinBox *>(QStringLiteral("diceCountSelector"));
         auto *total = widget.findChild<QLabel *>(QStringLiteral("diceTotalLabel"));
         auto *notation = widget.findChild<QLabel *>(QStringLiteral("diceNotationLabel"));
         auto *feedback = widget.findChild<QLabel *>(QStringLiteral("diceCriticalFeedbackLabel"));
         auto *history = widget.findChild<QListWidget *>(QStringLiteral("diceHistoryList"));
         QVERIFY(d6);
+        QVERIFY(animatedFace);
         QVERIFY(count);
         QVERIFY(total);
         QVERIFY(notation);
@@ -53,8 +55,15 @@ private slots:
         QCOMPARE(history->count(), 1);
 
         count->setValue(4);
+        for (const int sides : {4, 6, 8, 10, 12, 20, 100}) {
+            auto *button = widget.findChild<QPushButton *>(
+                QStringLiteral("diceTypeD%1Button").arg(sides));
+            QVERIFY(button);
+            button->click();
+            QCOMPARE(count->value(), 1);
+            QCOMPARE(animatedFace->property("dieSides").toInt(), sides);
+        }
         d6->click();
-        QCOMPARE(count->value(), 1);
 
         for (int index = 0; index < 25; ++index) {
             widget.roll();
