@@ -25,9 +25,15 @@ private slots:
         auto *toolsDock = window.findChild<QDockWidget *>(QStringLiteral("toolsDock"));
         auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("toolTabs"));
         auto *openDice = window.findChild<QAction *>(QStringLiteral("openDiceRollerAction"));
+        auto *toggleTools =
+            window.findChild<QAction *>(QStringLiteral("toggleToolsPanelAction"));
         QVERIFY(toolsDock);
         QVERIFY(tabs);
         QVERIFY(openDice);
+        QVERIFY(toggleTools);
+        QVERIFY(toolsDock->features().testFlag(QDockWidget::DockWidgetClosable));
+        window.show();
+        QTRY_VERIFY_WITH_TIMEOUT(toolsDock->isVisible(), 500);
         QCOMPARE(window.dockWidgetArea(toolsDock), Qt::LeftDockWidgetArea);
         QCOMPARE(tabs->count(), 0);
         QVERIFY(window.centralWidget());
@@ -48,7 +54,11 @@ private slots:
         QCOMPARE(tabs->count(), 1);
         QVERIFY(tabs->currentWidget() != firstDice);
 
-        toolsDock->hide();
+        toggleTools->trigger();
+        QVERIFY(toolsDock->isHidden());
+        toggleTools->trigger();
+        QVERIFY(!toolsDock->isHidden());
+        toggleTools->trigger();
         QVERIFY(toolsDock->isHidden());
         openDice->trigger();
         QVERIFY(!toolsDock->isHidden());

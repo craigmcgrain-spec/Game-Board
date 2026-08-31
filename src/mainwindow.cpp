@@ -64,6 +64,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_toolsDock->setObjectName(QStringLiteral("toolsDock"));
     m_toolsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_toolsDock->setFeatures(
+        QDockWidget::DockWidgetClosable
+        | QDockWidget::DockWidgetMovable
+        | QDockWidget::DockWidgetFloatable);
     m_toolsDock->setMinimumWidth(300);
     auto *toolsPanel = new QWidget(m_toolsDock);
     toolsPanel->setObjectName(QStringLiteral("toolsPanel"));
@@ -212,7 +216,12 @@ MainWindow::MainWindow(QWidget *parent)
     toolLauncher->addActions({diceRoller, chanceWheel, gearGenerator, nameGenerator});
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
-    viewMenu->addAction(m_toolsDock->toggleViewAction());
+    QAction *toggleToolsPanel = m_toolsDock->toggleViewAction();
+    toggleToolsPanel->setObjectName(QStringLiteral("toggleToolsPanelAction"));
+    toggleToolsPanel->setText(tr("Tabletop Tools Panel"));
+    toggleToolsPanel->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_T));
+    toggleToolsPanel->setStatusTip(tr("Show or hide the Tabletop Tools panel"));
+    viewMenu->addAction(toggleToolsPanel);
     viewMenu->addAction(playersDock->toggleViewAction());
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
