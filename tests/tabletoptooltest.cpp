@@ -30,6 +30,7 @@ private slots:
     void diceRollsDeterministicallyAndResetsCount()
     {
         DiceRollerWidget widget;
+        widget.setRollAnimationDurationForTesting(0);
         widget.setRandomIndexGenerator([](int upperBound) {
             return upperBound - 1;
         });
@@ -60,6 +61,39 @@ private slots:
             widget.roll();
         }
         QCOMPARE(history->count(), 20);
+    }
+
+    void diceShowsAndLocksDuringRollAnimation()
+    {
+        DiceRollerWidget widget;
+        int nextValue = 0;
+        widget.setRandomIndexGenerator([&nextValue](int upperBound) {
+            return nextValue++ % upperBound;
+        });
+        widget.setRollAnimationDurationForTesting(120);
+        auto *die = widget.findChild<QComboBox *>(QStringLiteral("diceTypeSelector"));
+        auto *count = widget.findChild<QSpinBox *>(QStringLiteral("diceCountSelector"));
+        auto *roll = widget.findChild<QPushButton *>(QStringLiteral("diceRollButton"));
+        auto *history = widget.findChild<QListWidget *>(QStringLiteral("diceHistoryList"));
+        QVERIFY(die);
+        QVERIFY(count);
+        QVERIFY(roll);
+        QVERIFY(history);
+
+        widget.roll();
+        QVERIFY(widget.isRolling());
+        QVERIFY(!die->isEnabled());
+        QVERIFY(!count->isEnabled());
+        QVERIFY(!roll->isEnabled());
+        QCOMPARE(roll->text(), QStringLiteral("Rolling..."));
+        QCOMPARE(history->count(), 0);
+
+        QTRY_VERIFY_WITH_TIMEOUT(!widget.isRolling(), 500);
+        QVERIFY(die->isEnabled());
+        QVERIFY(count->isEnabled());
+        QVERIFY(roll->isEnabled());
+        QCOMPARE(roll->text(), QStringLiteral("Roll"));
+        QCOMPARE(history->count(), 1);
     }
 
     void wheelGeometryAndValidation()
