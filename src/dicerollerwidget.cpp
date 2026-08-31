@@ -70,16 +70,8 @@ protected:
         valueFont.setBold(true);
         valueFont.setPointSize(valueFont.pointSize() + (m_value >= 100 ? 6 : 10));
         painter.setFont(valueFont);
-        const QRectF valueRect(-34.0, -28.0, 68.0, 49.0);
+        const QRectF valueRect(-34.0, -34.0, 68.0, 68.0);
         painter.drawText(valueRect, Qt::AlignCenter, QString::number(m_value));
-
-        QFont typeFont = painter.font();
-        typeFont.setPointSize(std::max(7, typeFont.pointSize() - 10));
-        painter.setFont(typeFont);
-        painter.drawText(
-            QRectF(-32.0, 18.0, 64.0, 20.0),
-            Qt::AlignHCenter,
-            QStringLiteral("d%1").arg(m_sides));
     }
 
 private:
