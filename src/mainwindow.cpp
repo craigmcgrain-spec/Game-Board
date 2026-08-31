@@ -37,7 +37,6 @@
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
-#include <QVBoxLayout>
 #include <QWindow>
 
 #include <cmath>
@@ -218,14 +217,16 @@ MainWindow::MainWindow(QWidget *parent)
     toolsPanel->setObjectName(QStringLiteral("toolsPanel"));
     toolsPanel->setAttribute(Qt::WA_StyledBackground, true);
     toolsPanel->setAutoFillBackground(true);
-    auto *toolsPanelLayout = new QVBoxLayout(toolsPanel);
+    auto *toolsPanelLayout = new QHBoxLayout(toolsPanel);
     toolsPanelLayout->setContentsMargins(0, 0, 0, 0);
     toolsPanelLayout->setSpacing(0);
     m_toolLauncher = new QToolBar(tr("Tabletop Tools"), toolsPanel);
     m_toolLauncher->setObjectName(QStringLiteral("toolPanelLauncher"));
     m_toolLauncher->setMovable(false);
     m_toolLauncher->setIconSize(QSize(26, 26));
-    m_toolLauncher->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_toolLauncher->setOrientation(Qt::Vertical);
+    m_toolLauncher->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_toolLauncher->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     toolsPanelLayout->addWidget(m_toolLauncher);
     m_toolTabs->setObjectName(QStringLiteral("toolTabs"));
     m_toolTabs->setAttribute(Qt::WA_StyledBackground, true);
@@ -576,12 +577,9 @@ void MainWindow::setToolsPanelCompact(bool compact)
         m_toggleCompactTools->setChecked(compact);
     }
     m_toolTabs->setVisible(!compact);
-    m_toolLauncher->setOrientation(compact ? Qt::Vertical : Qt::Horizontal);
-    m_toolLauncher->setToolButtonStyle(
-        compact ? Qt::ToolButtonIconOnly : Qt::ToolButtonTextBesideIcon);
-    m_toolLauncher->setSizePolicy(
-        compact ? QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding)
-                : QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed));
+    m_toolLauncher->setOrientation(Qt::Vertical);
+    m_toolLauncher->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_toolLauncher->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     m_toggleCompactTools->setIcon(style()->standardIcon(
         compact ? QStyle::SP_ArrowRight : QStyle::SP_ArrowLeft));
     m_toggleCompactTools->setText(

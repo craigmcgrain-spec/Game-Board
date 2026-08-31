@@ -100,8 +100,8 @@ private slots:
         openDice->trigger();
         QVERIFY(!compactTools->isChecked());
         QVERIFY(!tabs->isHidden());
-        QCOMPARE(launcher->orientation(), Qt::Horizontal);
-        QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonTextBesideIcon);
+        QCOMPARE(launcher->orientation(), Qt::Vertical);
+        QCOMPARE(launcher->toolButtonStyle(), Qt::ToolButtonIconOnly);
         QCOMPARE(tabs->count(), 1);
         QWidget *firstDice = tabs->currentWidget();
         QCOMPARE(firstDice->objectName(), QStringLiteral("diceRollerWidget"));
