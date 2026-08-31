@@ -7,6 +7,7 @@
 
 class BoardWidget;
 class QCloseEvent;
+class QDockWidget;
 class QLabel;
 class QMenu;
 class QTabWidget;
@@ -34,12 +35,13 @@ private:
     void updateRecentMenu();
     void updateWindowTitle();
     void setModified(bool modified);
-    void openToolTab(
+    void openToolPanel(
         const QString &title,
         const QString &objectName,
         const std::function<QWidget *()> &factory);
 
-    QTabWidget *m_tabs = nullptr;
+    QDockWidget *m_toolsDock = nullptr;
+    QTabWidget *m_toolTabs = nullptr;
     BoardWidget *m_board = nullptr;
     PlayersPanel *m_playersPanel = nullptr;
     QLabel *m_tileCountLabel = nullptr;

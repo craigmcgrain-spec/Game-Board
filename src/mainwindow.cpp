@@ -29,9 +29,9 @@
 #include <QStatusBar>
 #include <QSpinBox>
 #include <QStyle>
-#include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
+#include <QVBoxLayout>
 
 namespace {
 constexpr int SessionVersion = 6;
@@ -53,19 +53,36 @@ QString sessionFilter()
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_tabs(new QTabWidget(this))
-    , m_board(new BoardWidget(m_tabs))
+    , m_toolsDock(new QDockWidget(tr("Tabletop Tools"), this))
+    , m_toolTabs(new QTabWidget(m_toolsDock))
+    , m_board(new BoardWidget(this))
     , m_tileCountLabel(new QLabel(tr("0 pieces"), this))
     , m_zoomLabel(new QLabel(tr("100%"), this))
 {
     resize(1200, 800);
-    m_tabs->setObjectName(QStringLiteral("mainTabs"));
-    m_tabs->setDocumentMode(true);
-    m_tabs->setTabsClosable(true);
-    m_tabs->addTab(m_board, tr("Board"));
-    m_tabs->tabBar()->setTabButton(0, QTabBar::LeftSide, nullptr);
-    m_tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
-    setCentralWidget(m_tabs);
+    setCentralWidget(m_board);
+
+    m_toolsDock->setObjectName(QStringLiteral("toolsDock"));
+    m_toolsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_toolsDock->setMinimumWidth(300);
+    auto *toolsPanel = new QWidget(m_toolsDock);
+    toolsPanel->setObjectName(QStringLiteral("toolsPanel"));
+    auto *toolsPanelLayout = new QVBoxLayout(toolsPanel);
+    toolsPanelLayout->setContentsMargins(0, 0, 0, 0);
+    toolsPanelLayout->setSpacing(0);
+    auto *toolLauncher = new QToolBar(tr("Tabletop Tools"), toolsPanel);
+    toolLauncher->setObjectName(QStringLiteral("toolPanelLauncher"));
+    toolLauncher->setMovable(false);
+    toolLauncher->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toolsPanelLayout->addWidget(toolLauncher);
+    m_toolTabs->setObjectName(QStringLiteral("toolTabs"));
+    m_toolTabs->setDocumentMode(true);
+    m_toolTabs->setTabsClosable(true);
+    m_toolTabs->setUsesScrollButtons(true);
+    toolsPanelLayout->addWidget(m_toolTabs, 1);
+    m_toolsDock->setWidget(toolsPanel);
+    addDockWidget(Qt::LeftDockWidgetArea, m_toolsDock);
+
     auto *playersDock = new QDockWidget(tr("Players"), this);
     playersDock->setObjectName(QStringLiteral("playersDock"));
     playersDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -192,8 +209,10 @@ MainWindow::MainWindow(QWidget *parent)
     gearGenerator->setObjectName(QStringLiteral("openGearGeneratorAction"));
     QAction *nameGenerator = toolsMenu->addAction(tr("Name Generator"));
     nameGenerator->setObjectName(QStringLiteral("openNameGeneratorAction"));
+    toolLauncher->addActions({diceRoller, chanceWheel, gearGenerator, nameGenerator});
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(m_toolsDock->toggleViewAction());
     viewMenu->addAction(playersDock->toggleViewAction());
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -223,31 +242,31 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
     connect(diceRoller, &QAction::triggered, this, [this] {
-        openToolTab(tr("Dice Roller"), QStringLiteral("diceRollerWidget"), [this] {
-            return new DiceRollerWidget(m_tabs);
+        openToolPanel(tr("Dice Roller"), QStringLiteral("diceRollerWidget"), [this] {
+            return new DiceRollerWidget(m_toolTabs);
         });
     });
     connect(chanceWheel, &QAction::triggered, this, [this] {
-        openToolTab(tr("Chance Wheel"), QStringLiteral("chanceWheelWidget"), [this] {
-            return new ChanceWheelWidget(m_tabs);
+        openToolPanel(tr("Chance Wheel"), QStringLiteral("chanceWheelWidget"), [this] {
+            return new ChanceWheelWidget(m_toolTabs);
         });
     });
     connect(gearGenerator, &QAction::triggered, this, [this] {
-        openToolTab(tr("Gear Generator"), QStringLiteral("gearGeneratorWidget"), [this] {
-            return new GearGeneratorWidget(m_tabs);
+        openToolPanel(tr("Gear Generator"), QStringLiteral("gearGeneratorWidget"), [this] {
+            return new GearGeneratorWidget(m_toolTabs);
         });
     });
     connect(nameGenerator, &QAction::triggered, this, [this] {
-        openToolTab(tr("Name Generator"), QStringLiteral("nameGeneratorWidget"), [this] {
-            return new NameGeneratorWidget(m_tabs);
+        openToolPanel(tr("Name Generator"), QStringLiteral("nameGeneratorWidget"), [this] {
+            return new NameGeneratorWidget(m_toolTabs);
         });
     });
-    connect(m_tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
-        if (index <= 0) {
+    connect(m_toolTabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
+        if (index < 0) {
             return;
         }
-        QWidget *tool = m_tabs->widget(index);
-        m_tabs->removeTab(index);
+        QWidget *tool = m_toolTabs->widget(index);
+        m_toolTabs->removeTab(index);
         tool->deleteLater();
     });
     connect(paintTiles, &QAction::toggled, m_board, &BoardWidget::setTilePaintMode);
@@ -352,21 +371,23 @@ MainWindow::MainWindow(QWidget *parent)
         QStringLiteral("/home/lyco/Documents/Hexboard Tiles")).toString());
 }
 
-void MainWindow::openToolTab(
+void MainWindow::openToolPanel(
     const QString &title,
     const QString &objectName,
     const std::function<QWidget *()> &factory)
 {
-    for (int index = 1; index < m_tabs->count(); ++index) {
-        if (m_tabs->widget(index)->objectName() == objectName) {
-            m_tabs->setCurrentIndex(index);
+    m_toolsDock->show();
+    m_toolsDock->raise();
+    for (int index = 0; index < m_toolTabs->count(); ++index) {
+        if (m_toolTabs->widget(index)->objectName() == objectName) {
+            m_toolTabs->setCurrentIndex(index);
             return;
         }
     }
 
     QWidget *tool = factory();
-    const int index = m_tabs->addTab(tool, title);
-    m_tabs->setCurrentIndex(index);
+    const int index = m_toolTabs->addTab(tool, title);
+    m_toolTabs->setCurrentIndex(index);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

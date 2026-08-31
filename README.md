@@ -90,9 +90,11 @@ so saved sessions can be moved to another Fedora system without copying their
 original image files.
 
 The Dice Roller, Chance Wheel, Gear Generator, and Name Generator open in
-closable tabs beside the permanent Board tab. Tool preferences are stored
-separately from `.hexboard` sessions; closing a tool tab discards its
-in-memory results and reopening it starts a clean instance.
+closable tabs in the **Tabletop Tools** panel on the left side of the board.
+Use its launcher buttons or the **Tools** menu; the panel can also be hidden
+from **View**. Tool preferences are stored separately from `.hexboard`
+sessions; closing a tool tab discards its in-memory results and reopening it
+starts a clean instance.
 
 ## License
 
