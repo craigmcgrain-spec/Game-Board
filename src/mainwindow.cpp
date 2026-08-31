@@ -50,6 +50,8 @@ public:
         , m_dock(dock)
     {
         setObjectName(QStringLiteral("toolsFloatingTitleBar"));
+        setAttribute(Qt::WA_StyledBackground, true);
+        setAutoFillBackground(true);
         auto *layout = new QHBoxLayout(this);
         layout->setContentsMargins(8, 3, 3, 3);
         layout->setSpacing(4);
@@ -127,6 +129,8 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(m_board);
 
     m_toolsDock->setObjectName(QStringLiteral("toolsDock"));
+    m_toolsDock->setAttribute(Qt::WA_StyledBackground, true);
+    m_toolsDock->setAutoFillBackground(true);
     m_toolsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     m_toolsDock->setFeatures(
         QDockWidget::DockWidgetClosable
@@ -135,6 +139,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_toolsDock->setMinimumWidth(300);
     auto *toolsPanel = new QWidget(m_toolsDock);
     toolsPanel->setObjectName(QStringLiteral("toolsPanel"));
+    toolsPanel->setAttribute(Qt::WA_StyledBackground, true);
+    toolsPanel->setAutoFillBackground(true);
     auto *toolsPanelLayout = new QVBoxLayout(toolsPanel);
     toolsPanelLayout->setContentsMargins(0, 0, 0, 0);
     toolsPanelLayout->setSpacing(0);
@@ -144,6 +150,8 @@ MainWindow::MainWindow(QWidget *parent)
     toolLauncher->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolsPanelLayout->addWidget(toolLauncher);
     m_toolTabs->setObjectName(QStringLiteral("toolTabs"));
+    m_toolTabs->setAttribute(Qt::WA_StyledBackground, true);
+    m_toolTabs->setAutoFillBackground(true);
     m_toolTabs->setDocumentMode(true);
     m_toolTabs->setTabsClosable(true);
     m_toolTabs->setUsesScrollButtons(true);

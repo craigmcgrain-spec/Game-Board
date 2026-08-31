@@ -24,15 +24,20 @@ private slots:
     {
         MainWindow window;
         auto *toolsDock = window.findChild<QDockWidget *>(QStringLiteral("toolsDock"));
+        auto *toolsPanel = window.findChild<QWidget *>(QStringLiteral("toolsPanel"));
         auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("toolTabs"));
         auto *openDice = window.findChild<QAction *>(QStringLiteral("openDiceRollerAction"));
         auto *toggleTools =
             window.findChild<QAction *>(QStringLiteral("toggleToolsPanelAction"));
         QVERIFY(toolsDock);
+        QVERIFY(toolsPanel);
         QVERIFY(tabs);
         QVERIFY(openDice);
         QVERIFY(toggleTools);
         QVERIFY(toolsDock->features().testFlag(QDockWidget::DockWidgetClosable));
+        QVERIFY(toolsDock->autoFillBackground());
+        QVERIFY(toolsPanel->autoFillBackground());
+        QVERIFY(tabs->autoFillBackground());
         window.show();
         QTRY_VERIFY_WITH_TIMEOUT(toolsDock->isVisible(), 500);
         QCOMPARE(window.dockWidgetArea(toolsDock), Qt::LeftDockWidgetArea);
@@ -46,6 +51,7 @@ private slots:
         QCOMPARE(
             toolsDock->titleBarWidget()->objectName(),
             QStringLiteral("toolsFloatingTitleBar"));
+        QVERIFY(toolsDock->titleBarWidget()->autoFillBackground());
         auto *dockButton = toolsDock->findChild<QToolButton *>(
             QStringLiteral("dockToolsPanelButton"));
         QVERIFY(dockButton);
